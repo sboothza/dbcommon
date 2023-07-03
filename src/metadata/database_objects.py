@@ -2,9 +2,9 @@ from enum import Enum
 from typing import Any, Union, List
 
 from base.exceptions import DatatypeException, DataException
-from base.hard_serializer import HardSerializer
-from base.naming import Name
-from base.utils import safeget
+from src.utilities.hard_serializer import HardSerializer
+from src.utilities.naming import Name
+from src.utilities.utils import safeget
 
 
 class FieldType(Enum):

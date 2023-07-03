@@ -1,11 +1,11 @@
 import re
 
-from base.connection_base import ConnectionBase
-from base.exceptions import DataException
-from base.mysql_connection import MySqlConnection
-from base.pgsql_connection import PgSqlConnection
-from base.session import Session, PersistentSession
-from base.sqlite_connection import SqliteConnection
+from src.base.connection_base import ConnectionBase
+from src.base.exceptions import DataException
+from src.base.mysql_connection import MySqlConnection
+from src.base.pgsql_connection import PgSqlConnection
+from src.base.session import Session, PersistentSession
+from src.base.sqlite_connection import SqliteConnection
 
 
 class SessionFactory(object):

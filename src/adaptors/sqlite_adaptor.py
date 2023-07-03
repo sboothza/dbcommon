@@ -2,10 +2,10 @@ import re
 import sqlite3
 from typing import Union, List
 
-from adaptors.adaptor import Adaptor
-from base.database_objects import DataException, Database, Table, Field, KeyType, Key, HelperFactory, FieldType, \
+from src.adaptors.adaptor import Adaptor
+from src.metadata.database_objects import DataException, Database, Table, Field, KeyType, Key, HelperFactory, FieldType, \
     DatatypeException
-from base.utils import get_fullname, get_filename, clean_string, find_in_list
+from src.utilities.utils import get_fullname, get_filename, clean_string, find_in_list
 
 
 class SqliteAdaptor(Adaptor):
@@ -40,6 +40,9 @@ class SqliteAdaptor(Adaptor):
     def escape_field_list(self, values: List[str]) -> List[str]:
         return ["[" + value + "]" for value in values]
 
+    def generate_drop_script(self, table: Table) -> str:
+        return f"DROP TABLE [{table.name.raw()}];"
+
     def generate_create_script(self, table: Table) -> str:
         sql: list[str] = []
         for field in table.fields:
@@ -65,7 +68,7 @@ class SqliteAdaptor(Adaptor):
 
         return result
 
-    def generate_table_exists_script(self, table: Table, db_name: str) -> str:
+    def generate_table_exists_script(self, table: Table) -> str:
         return f"SELECT name FROM sqlite_schema WHERE type='table' and name = '{table.name.raw()}'"
 
     def generate_count_script(self, table: Table) -> str:

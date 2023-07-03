@@ -22,6 +22,7 @@ class Person:
     def __init__(self, id: int = 0, name: str = "", gender: Gender = Gender.MALE, address: str = "",
                  credit_card: str = "", phone: str = "", email: str = "",
                  dob: datetime.datetime = datetime.datetime.min):
+        self.id = 0
         self.father_id: int = None
         self.mother_id: int = None
         if name == "":
@@ -84,3 +85,22 @@ class Person:
         self.email = fake.ascii_email()
         parent_age = datetime.date.today().year - father.dob.year
         self.dob = fake.date_of_birth(None, 0, parent_age - 20)
+
+    def init_from_row(self, row):
+        self.id = row[0]
+        self.father_id = row[1]
+        self.mother_id = row[2]
+        self.name = row[3]
+        self.gender = Gender.MALE if row[4] == "M" else Gender.FEMALE
+        self.address = row[5]
+        self.credit_card = row[6]
+        self.phone = row[7]
+        self.email = row[8]
+        self.dob = row[9].date() if isinstance(row[9], datetime.datetime) \
+            else datetime.datetime.strptime(row[9], '%Y-%m-%d').date()
+
+    def __eq__(self, other):
+        if not isinstance(other, Person):
+            return False
+
+        return self.__dict__ == other.__dict__

@@ -4,11 +4,11 @@ import shutil
 from pathlib import Path
 from typing import List
 
-from adaptors.adaptor import Adaptor
-from database_objects import Table, Field, FieldType, QueryType, KeyType, Database
-from generators.generator import Generator
-from naming import Naming, Name
-from source_writer import SourceWriter
+from src.adaptors.adaptor import Adaptor
+from src.generators.generator import Generator
+from src.metadata.database_objects import Table, Database, KeyType, Field, FieldType, QueryType
+from src.utilities.naming import Naming, Name
+from src.utilities.source_writer import SourceWriter
 
 
 class PythonGenerator(Generator):

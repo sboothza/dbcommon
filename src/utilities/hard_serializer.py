@@ -1,8 +1,5 @@
 import json
 from enum import Enum
-from types import NoneType
-
-from base.naming import Naming
 
 
 class HardSerializer(json.JSONEncoder):
@@ -60,7 +57,7 @@ class HardSerializer(json.JSONEncoder):
             return new_obj
 
         if not isinstance(source_obj, dict):
-            if cls is NoneType:
+            if cls == type(None):
                 return source_obj
             return cls(source_obj)
 

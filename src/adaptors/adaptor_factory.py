@@ -1,10 +1,10 @@
 import re
 
-from adaptors.adaptor import Adaptor
-from adaptors.mysql_adaptor import MySqlAdaptor
-from adaptors.pgsql_adaptor import PgSqlAdaptor
-from adaptors.sqlite_adaptor import SqliteAdaptor
-from base.naming import Naming
+from src.adaptors.adaptor import Adaptor
+from src.adaptors.mysql_adaptor import MySqlAdaptor
+from src.adaptors.pgsql_adaptor import PgSqlAdaptor
+from src.adaptors.sqlite_adaptor import SqliteAdaptor
+from src.utilities.naming import Naming
 
 
 class AdaptorFactory(object):

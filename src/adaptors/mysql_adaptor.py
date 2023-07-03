@@ -1,21 +1,21 @@
 import re
 from typing import List
 
-import psycopg2
+import mysql
 
-from adaptors.adaptor import Adaptor
-from base.database_objects import DataException, Database, Table, Field, Key, KeyType, HelperFactory, FieldType, \
+from src.adaptors.adaptor import Adaptor
+from src.metadata.database_objects import DataException, Database, Table, Field, KeyType, Key, HelperFactory, FieldType, \
     DatatypeException
 
 
-class PgSqlAdaptor(Adaptor):
-    """ Connection string is pgsql://user:pass@hostname/database """
-    __blank_connection__ = "pgsql://u:p@h/d"
+class MySqlAdaptor(Adaptor):
+    """ Connection string is mysql://user:pass@hostname/database """
+    __blank_connection__ = "mysql://u:p@h/d"
 
     def __init__(self, connection, naming):
         super().__init__(connection, naming)
 
-        match = re.match(r"pgsql:\/\/(\w+):(\w+)@(\w+)\/(\w+)", self.connection)
+        match = re.match(r"mysql:\/\/(\w+):(\w+)@(\w+)\/(\w+)", self.connection)
         if match:
             self.user = match.group(1)
             self.password = match.group(2)
@@ -25,14 +25,14 @@ class PgSqlAdaptor(Adaptor):
             raise DataException("Invalid connection string")
 
     def import_schema(self, db_name: str) -> Database:
-        connection = psycopg2.connect(user=self.user, password=self.password, host=self.hostname,
-                                      database=self.database)
+        connection = mysql.connector.connect(user=self.user, password=self.password, host=self.hostname,
+                                             database=self.database)
 
         if db_name is None:
             db_name = self.database
 
         database = Database(self.naming.string_to_name(db_name))
-        cursor = connection.cursor()
+        cursor = connection.cursor(buffered=True)
         print("Processing tables...")
         cursor.execute("select TABLE_NAME from INFORMATION_SCHEMA.tables where TABLE_SCHEMA = 'test' and "
                        "TABLE_TYPE = 'BASE TABLE'")
@@ -107,23 +107,22 @@ class PgSqlAdaptor(Adaptor):
         return ""
 
     def escape_field_list(self, values: List[str]) -> List[str]:
-        return [f"\"{value}\"" for value in values]
+        return [f"`{value}`" for value in values]
 
     def generate_drop_script(self, table: Table) -> str:
-        return f"DROP TABLE \"{table.name.raw()}\";"
+        return f"DROP TABLE `{table.name.raw()}`;"
 
     @staticmethod
     def get_field_default(field: Field) -> str:
         if field.type == FieldType.String or field.type == FieldType.Datetime:
             return f"'{field.default}'"
-        return field.default
 
     def generate_create_script(self, table: Table) -> str:
         sql: list[str] = []
         for field in table.fields:
-            sql.append(f'"{field.name.raw()}" {self.get_field_type(field.type, field.size, field.scale)}'
+            sql.append(f"`{field.name.raw()}` {self.get_field_type(field.type, field.size, field.scale)}"
                        f"{self.get_field_size(field)} {'NOT NULL' if field.required else 'NULL'}"
-                       f"{' GENERATED ALWAYS AS IDENTITY' if field.auto_increment else ''}"
+                       f"{' AUTO_INCREMENT' if field.auto_increment else ''}"
                        f"{' DEFAULT (' + self.get_field_default(field) + ')' if field.default else ''}")
         if table.pk:
             sql.append(f"PRIMARY KEY ({','.join(table.pk.fields)})")
@@ -132,65 +131,60 @@ class PgSqlAdaptor(Adaptor):
             sql.append(f"FOREIGN KEY ({','.join(self.escape_field_list(fk.fields))}) REFERENCES "
                        f"{fk.primary_table}({','.join(self.escape_field_list(fk.primary_fields))})")
         joiner = ',\n\t'
-        result = f'CREATE TABLE "{table.name.raw()}" (\n\t{joiner.join(sql)}\n);\n'
+        result = f"CREATE TABLE `{table.name.raw()}` (\n\t{joiner.join(sql)}\n);\n"
 
         for key in table.keys:
             if key.key_type == KeyType.Unique:
-                result += f'CREATE UNIQUE INDEX "{key.name.raw()}" ON {table.name.raw()} ' \
+                result += f"CREATE UNIQUE INDEX `{key.name.raw()}` ON {table.name.raw()} " \
                           f"({','.join(self.escape_field_list(key.fields))});\n"
 
             elif key.key_type == KeyType.Index:
-                result += f'CREATE INDEX "{key.name.raw()}" ON {table.name.raw()} ' \
+                result += f"CREATE INDEX `{key.name.raw()}` ON {table.name.raw()} " \
                           f"({','.join(self.escape_field_list(key.fields))});\n"
 
         return result
 
-    def generate_table_exists_script(self, table: Table, db_name: str) -> str:
-        return f"select TABLE_NAME from INFORMATION_SCHEMA.tables where table_catalog = '{db_name}' and " \
+    def generate_table_exists_script(self, table: Table) -> str:
+        return f"select TABLE_NAME from INFORMATION_SCHEMA.tables where TABLE_SCHEMA = '{self.database}' and " \
                f"TABLE_TYPE = 'BASE TABLE' and TABLE_NAME = '{table.name.raw()}'"
 
     def generate_count_script(self, table: Table) -> str:
-        return f'select count(*) from "{table.name.raw()}"'
+        return f"select count(*) from `{table.name.raw()}`"
 
     def generate_insert_script(self, table: Table) -> str:
         fields = [f.name.raw() for f in table.fields if not f.auto_increment]
-        autofields = [f.name.raw() for f in table.fields if f.auto_increment]
-        params = ", ".join([f'"{f}"' for f in fields])
+        params = ", ".join([f"`{f}`" for f in fields])
         values = ", ".join([f"%({f})s" for f in fields])
-        returning_fields = ""
-        if len(autofields) > 0:
-            returning_fields = " RETURNING " + ", ".join([f'"{f}"' for f in autofields])
-
-        result = f'insert into "{table.name.raw()}" ({params}) values ({values}){returning_fields};'
+        result = f"insert into `{table.name.raw()}` ({params}) values ({values});"
         return result
 
     def generate_update_script(self, table: Table) -> str:
         fields = [f.name.raw() for f in table.fields if not f.auto_increment and f.name not in table.pk.fields]
-        update_list = [f'"{f}" = %({f})s' for f in fields]
+        update_list = [f"`{f}` = %({f})s" for f in fields]
         update = ", ".join(update_list)
-        key_list = [f'"{f}" = %({f})s' for f in table.pk.fields]
+        key_list = [f"`{f}` = %({f})s" for f in table.pk.fields]
         key = " and ".join(key_list)
-        result = f'update "{table.name.raw()}" set {update} where {key};'
+        result = f"update `{table.name.raw()}` set {update} where {key};"
         return result
 
     def generate_delete_script(self, table: Table) -> str:
-        key_list = [f'"{f}" = %({f})s' for f in table.pk.fields]
+        key_list = [f"`{f}` = %({f})s" for f in table.pk.fields]
         key = " and ".join(key_list)
-        result = f'delete from "{table.name.raw()}" where {key};'
+        result = f"delete from `{table.name.raw()}` where {key};"
         return result
 
     def generate_fetch_by_id_script(self, table: Table) -> str:
-        field_list = [f'"{f.name.raw()}"' for f in table.fields]
+        field_list = [f"`{f.name.raw()}`" for f in table.fields]
         fields = ", ".join(field_list)
-        key_list = [f'"{f}" = %({f})s' for f in table.pk.fields]
+        key_list = [f"`{f}` = %({f})s" for f in table.pk.fields]
         key = " and ".join(key_list)
-        result = f'select {fields} from "{table.name.raw()}" where {key};'
+        result = f"select {fields} from `{table.name.raw()}` where {key};"
         return result
 
     def generate_item_exists_script(self, table: Table) -> str:
-        key_list = [f'"{f}" = %({f})s' for f in table.pk.fields]
+        key_list = [f"`{f}` = %({f})s" for f in table.pk.fields]
         key = " and ".join(key_list)
-        result = f'select count(*) from "{table.name.raw()}" where {key};'
+        result = f"select count(*) from `{table.name.raw()}` where {key};"
         return result
 
     @staticmethod
@@ -203,9 +197,15 @@ class PgSqlAdaptor(Adaptor):
         elif value == "bigint":
             field.type = FieldType.Integer
             field.size = 8
+        elif value == "tinyint":
+            field.type = FieldType.Integer
+            field.size = 1
         elif value == "smallint":
             field.type = FieldType.Integer
             field.size = 2
+        elif value == "mediumint":
+            field.type = FieldType.Integer
+            field.size = 3
         elif value == "float" or value == "real":
             field.type = FieldType.Float
             field.size = 4
@@ -215,14 +215,14 @@ class PgSqlAdaptor(Adaptor):
         elif value == "boolean" or value == "bool":
             field.type = FieldType.Boolean
             field.size = 1
-        elif value == "decimal" or value == "money" or value == "numeric":
+        elif value == "decimal" or value == "money":
             field.type = FieldType.Decimal
             field.size = precision
             field.scale = scale
         elif value == "string" or value == "varchar" or value == "char":
             field.type = FieldType.String
             field.size = size
-        elif value == "timestamp" or value == "date":
+        elif value == "datetime" or value == "date":
             field.type = FieldType.Datetime
             field.size = 0
         elif value == "none" or value == "undefined":
@@ -234,8 +234,12 @@ class PgSqlAdaptor(Adaptor):
 
     def get_field_type(self, field_type: FieldType, size: int = 0, scale: int = 0) -> str:
         if field_type == FieldType.Integer:
-            if size == 1 or size == 2:
+            if size == 1:
+                return "TINYINT"
+            elif size == 2:
                 return "SMALLINT"
+            elif size == 3:
+                return "MEDIUMINT"
             elif size == 4:
                 return "INT"
             elif size == 8:
@@ -254,11 +258,11 @@ class PgSqlAdaptor(Adaptor):
                 raise DatatypeException("Unknown float size")
 
         elif field_type == FieldType.Decimal:
-            return "NUMERIC"
+            return "DECIMAL"
         elif field_type == FieldType.Datetime:
-            return "TIMESTAMP"
+            return "DATETIME"
         elif field_type == FieldType.Boolean:
-            return "SMALLINT"
+            return "TINYINT"
         else:
             raise DatatypeException("Unknown field type ")
 

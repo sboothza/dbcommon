@@ -1,6 +1,6 @@
-from generators.generator import Generator
-from generators.python_generator import PythonGenerator
-from naming import Naming
+from src.generators.generator import Generator
+from src.generators.python_generator import PythonGenerator
+from src.utilities.naming import Naming
 
 
 class GeneratorFactory(object):

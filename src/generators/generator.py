@@ -1,10 +1,9 @@
 import os
 
-from adaptors.adaptor import Adaptor
-from database_objects import Database, Table, KeyType
-from naming import Naming, Name
-from serializer import serializer_instance
-from source_writer import SourceWriter
+from src.adaptors.adaptor import Adaptor
+from src.metadata.database_objects import Database, Table
+from src.utilities.naming import Naming, Name
+from src.utilities.source_writer import SourceWriter
 
 
 class Generator(object):

@@ -1,15 +1,15 @@
 import re
 
-import mysql.connector
+import psycopg2
 
-from base.connection_base import ConnectionBase
-from base.managed_cursor import ManagedCursor
+from src.base.connection_base import ConnectionBase
+from src.base.managed_cursor import ManagedCursor
 
 
-class MySqlConnection(ConnectionBase):
+class PgSqlConnection(ConnectionBase):
     def __init__(self, connection_string):
         super().__init__(connection_string)
-        match = re.match(r"mysql:\/\/(\w+):(\w+)@(\w+)\/(\w+)", self.connection_string)
+        match = re.match(r"pgsql:\/\/(\w+):(\w+)@(\w+)\/(\w+)", self.connection_string)
         if match:
             self.user = match.group(1)
             self.password = match.group(2)
@@ -18,8 +18,8 @@ class MySqlConnection(ConnectionBase):
         else:
             raise Exception("Invalid connection string")
 
-        self.connection = mysql.connector.connect(user=self.user, password=self.password, host=self.hostname,
-                                                  database=self.database)
+        self.connection = psycopg2.connect(user=self.user, password=self.password, host=self.hostname,
+                                           database=self.database)
 
     def commit(self):
         self.connection.commit()
@@ -30,16 +30,16 @@ class MySqlConnection(ConnectionBase):
     def execute(self, query: str, params: None) -> ManagedCursor:
         if params is None:
             params = {}
-        cursor = self.connection.cursor(buffered=True)
+        cursor = self.connection.cursor()
         cursor.execute(query, params)
         return ManagedCursor(cursor)
 
     def execute_lastrowid(self, query: str, params: {}):
         if params is None:
             params = {}
-        cursor = self.connection.cursor(buffered=True)
+        cursor = self.connection.cursor()
         cursor.execute(query, params)
-        return cursor.lastrowid
+        return cursor.fetchone()[0]
 
     def close(self):
         self.commit()

@@ -1,8 +1,8 @@
 import sqlite3
 
-from base.connection_base import ConnectionBase
-from base.managed_cursor import ManagedCursor
-from base.utils import get_fullname, get_filename
+from src.base.connection_base import ConnectionBase
+from src.base.managed_cursor import ManagedCursor
+from src.utilities.utils import get_fullname, get_filename
 
 
 class SqliteConnection(ConnectionBase):

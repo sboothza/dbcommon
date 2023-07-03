@@ -1,6 +1,6 @@
 from typing import List
 
-from base.utils import pascal, get_fullname, find_first_in_array, find_first_in
+from src.utilities.utils import pascal, get_fullname, find_first_in_array, find_first_in
 
 
 class Name(object):

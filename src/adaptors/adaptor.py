@@ -1,13 +1,14 @@
 from typing import List
 
-from base.database_objects import Database, KeyType, Table, FieldType
-from base.hard_serializer import HardSerializer
-from base.naming import Naming
+from src.metadata.database_objects import Database, KeyType, Table, FieldType
+from src.utilities.hard_serializer import HardSerializer
+from src.utilities.naming import Naming
 
 
 class Adaptor(object):
     def __init__(self, connection: str, naming: Naming):
         self.connection = connection
+        self.database = ""
         self.naming = naming
         self.serializer = HardSerializer(naming=self.naming)
 
@@ -75,7 +76,7 @@ class Adaptor(object):
     def generate_create_script(self, table: Table) -> str:
         pass
 
-    def generate_table_exists_script(self, table: Table, db_name: str) -> str:
+    def generate_table_exists_script(self, table: Table) -> str:
         pass
 
     def generate_count_script(self, table: Table) -> str:

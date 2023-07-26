@@ -3,7 +3,7 @@ import sqlite3
 from typing import Union, List
 
 from src.adaptors.adaptor import Adaptor
-from src.metadata.database_objects import DataException, Database, Table, Field, KeyType, Key, HelperFactory, FieldType, \
+from src.metadata.database_objects import DataException, Database, Table, Field, KeyType, Key, FieldType, \
     DatatypeException
 from src.utilities.utils import get_fullname, get_filename, clean_string, find_in_list
 
@@ -259,7 +259,7 @@ class SqliteAdaptor(Adaptor):
                     index = find_in_list("default", words)
                     default_value = words[index + 1]
 
-                field = Field(self.naming.string_to_name(name), HelperFactory.get_fieldtype(type), required=required,
+                field = Field(self.naming.string_to_name(name), FieldType.from_string(), required=required,
                               auto_increment=auto_increment, default=default_value)
                 table.fields.append(field)
 

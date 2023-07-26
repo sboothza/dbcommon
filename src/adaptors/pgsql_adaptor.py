@@ -4,7 +4,7 @@ from typing import List
 import psycopg2
 
 from src.adaptors.adaptor import Adaptor
-from src.metadata.database_objects import DataException, Database, Table, Field, Key, KeyType, HelperFactory, FieldType, \
+from src.metadata.database_objects import DataException, Database, Table, Field, Key, KeyType, FieldType, \
     DatatypeException
 
 
@@ -82,7 +82,7 @@ class PgSqlAdaptor(Adaptor):
                 key = Key(self.naming.string_to_name(row[0]))
                 key.referenced_table = table.name.raw()
                 key_type = row[5].lower()
-                key.key_type = HelperFactory.get_keytype(key_type)
+                key.key_type = KeyType.from_string()
 
                 key.fields = [f.strip() for f in row[2].split(",")]
 

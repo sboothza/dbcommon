@@ -2,9 +2,11 @@ from enum import Enum
 from typing import Any, Union, List
 
 from base.exceptions import DatatypeException, DataException
-from src.utilities.hard_serializer import HardSerializer
 from src.utilities.naming import Name
-from src.utilities.utils import safeget
+
+
+class FieldType:
+    ...
 
 
 class FieldType(Enum):
@@ -40,8 +42,33 @@ class FieldType(Enum):
         else:
             raise DatatypeException("Unknown field type ")
 
-    def map_to_dict(self, serializer: HardSerializer) -> str:
-        return str(self)
+    @staticmethod
+    def map_to_object(obj, serializer, naming):
+        return FieldType.from_string(obj)
+
+    @staticmethod
+    def from_string(obj):
+        value = obj.lower()
+        if value == "integer" or value == "int" or value == "bigint" or value == "tinyint":
+            return FieldType.Integer
+        elif value == "string" or value == "varchar" or value == "char" or value == "text":
+            return FieldType.String
+        elif value == "float" or value == "real":
+            return FieldType.Float
+        elif value == "datetime" or value == "date":
+            return FieldType.Datetime
+        elif value == "boolean" or value == "bool":
+            return FieldType.Boolean
+        elif value == "decimal" or value == "money":
+            return FieldType.Decimal
+        elif value == "__item__":
+            return FieldType.Item
+        elif value == "[__item__]":
+            return FieldType.ListOfItem
+        elif value == "none":
+            return FieldType.Undefined
+        else:
+            raise DatatypeException(f"Unknown field type {value}")
 
 
 class Field(object):
@@ -67,14 +94,9 @@ class Field(object):
         return f"{str(self.name)} {self.type} ({self.size},{self.scale}) {'AUTOINC ' if self.auto_increment else ''}" \
                f"{'DEFAULT ' + self.default + ' ' if self.default else ''}{'NOT NULL' if self.required else 'NULL'}"
 
-    def map_to_object(self, obj, serializer, naming):
-        self.name = naming.string_to_name(obj["name"])
-        self.type = HelperFactory.get_fieldtype(obj["type"])
-        self.size = safeget(obj, "size", 0)
-        self.scale = safeget(obj, "scale", 0)
-        self.auto_increment = safeget(obj, "auto_increment", False)
-        self.default = safeget(obj, "default", None)
-        self.required = safeget(obj, "required", False)
+
+class KeyType:
+    ...
 
 
 class KeyType(Enum):
@@ -85,21 +107,27 @@ class KeyType(Enum):
     ForeignKey = 4
     Lookup = 5
 
-    def __str__(self):
-        if self == KeyType.Undefined:
-            return "Undefined"
-        elif self == KeyType.PrimaryKey:
-            return "PrimaryKey"
-        elif self == KeyType.Index:
-            return "Index"
-        elif self == KeyType.Unique:
-            return "Unique"
-        elif self == KeyType.ForeignKey:
-            return "ForeignKey"
-        elif self == KeyType.Lookup:
-            return "Lookup"
+    @staticmethod
+    def map_to_object(obj, serializer, naming):
+        return KeyType.from_string(obj)
+
+    @staticmethod
+    def from_string(obj):
+        value = obj.lower()
+        if value == "undefined":
+            return KeyType.Undefined
+        elif value == "primarykey" or value == "primary key":
+            return KeyType.PrimaryKey
+        elif value == "index":
+            return KeyType.Index
+        elif value == "unique":
+            return KeyType.Unique
+        elif value == "foreignkey" or value == "foreign key":
+            return KeyType.ForeignKey
+        elif value == "lookup":
+            return KeyType.Lookup
         else:
-            raise DatatypeException("Unknown key type ")
+            raise DatatypeException(f"Unknown key type {value}")
 
 
 class Key(object):
@@ -121,29 +149,6 @@ class Key(object):
     def __str__(self):
         return f"{self.name} {self.key_type} {','.join(self.fields)}{self.primary_table}" \
                f"{'' if len(self.primary_fields) == 0 else ','.join(self.primary_fields)}"
-
-    def map_to_object(self, obj, serializer, naming):
-        self.name = naming.string_to_name(obj["name"])
-        self.fields = serializer.map_to_object(obj["fields"], str)
-        self.primary_table = "" if "primary_table" not in obj else str(obj["primary_table"])
-        self.primary_fields = "" if "primary_fields" not in obj else serializer.map_to_object(
-            obj["primary_fields"], str)
-        self.key_type = HelperFactory.get_keytype(obj["key_type"])
-        self.referenced_table = "" if "referenced_table" not in obj else str(obj["referenced_table"])
-
-    def map_to_dict(self, serializer: HardSerializer):
-        obj = {
-            "name": self.name.raw(),
-            "fields": serializer.map_to_dict(self.fields),
-            "key_type": str(self.key_type)
-        }
-        if self.key_type == KeyType.ForeignKey or self.key_type == KeyType.Lookup:
-            obj["primary_table"] = str(self.primary_table)
-            obj["primary_fields"] = serializer.map_to_dict(self.primary_fields)
-
-        obj["referenced_table"] = str(self.referenced_table)
-
-        return obj
 
 
 class TransformType(Enum):
@@ -168,10 +173,6 @@ class Parameter(object):
         self.name = name
         self.type = type
 
-    def map_to_object(self, obj, serializer, naming):
-        self.name = naming.string_to_name(obj["name"])
-        self.type = HelperFactory.get_fieldtype(obj["type"])
-
 
 class CustomQuery(object):
     name: Name
@@ -191,16 +192,6 @@ class CustomQuery(object):
 
     def __str__(self):
         return str(self.name)
-
-    def map_to_object(self, obj, serializer, naming):
-        if obj is dict:
-            self.name = naming.string_to_name(obj["name"])
-            self.parameters = None if "parameters" not in obj else serializer.map_to_object(obj["parameters"],
-                                                                                            Parameter)
-            self.return_type = HelperFactory.get_fieldtype(obj["return_type"])
-            self.transform = HelperFactory.get_transformtype(obj["transform"])
-            self.query_type = HelperFactory.get_querytype(obj["query_type"])
-            self.query = str(obj["query"])
 
 
 class Table(object):
@@ -229,24 +220,6 @@ class Table(object):
     def __str__(self):
         return str(self.name)
 
-    def map_to_object(self, obj, serializer, naming):
-        self.name = naming.string_to_name(obj["name"])
-        self.fields = serializer.map_to_object(obj["fields"], Field)
-        self.pk = None if "pk" not in obj else serializer.map_to_object(obj["pk"], Key)
-        self.keys = None if "keys" not in obj else serializer.map_to_object(obj["keys"], Key)
-        self.custom_queries = None if "custom_queries" not in obj else serializer.map_to_object(obj["custom_queries"],
-                                                                                                CustomQuery)
-
-    def map_to_dict(self, serializer: HardSerializer):
-        obj = {
-            "name": self.name.raw(),
-            "fields": serializer.map_to_dict(self.fields),
-            "pk": serializer.map_to_dict(self.pk),
-            "keys": serializer.map_to_dict(self.keys),
-            "custom_queries": serializer.map_to_dict(self.custom_queries)
-        }
-        return obj
-
 
 class Database(object):
     name: Name
@@ -256,84 +229,8 @@ class Database(object):
         self.name = name
         self.tables: List[Table] = []
 
-    def map_to_object(self, obj, serializer, naming):
-        self.name = naming.string_to_name(obj["name"])
-        self.tables = serializer.map_to_object(obj["tables"], Table)
-
     def get_table(self, table_name: str):
         result = [table for table in self.tables if table.name.raw() == table_name]
         if len(result) > 0:
             return result[0]
         return None
-
-
-class HelperFactory:
-    @classmethod
-    def get_fieldtype(cls, value: str) -> FieldType:
-        value = value.lower()
-        if value == "integer" or value == "int" or value == "bigint" or value == "tinyint":
-            return FieldType.Integer
-        elif value == "string" or value == "varchar" or value == "char" or value == "text":
-            return FieldType.String
-        elif value == "float" or value == "real":
-            return FieldType.Float
-        elif value == "datetime" or value == "date":
-            return FieldType.Datetime
-        elif value == "boolean" or value == "bool":
-            return FieldType.Boolean
-        elif value == "decimal" or value == "money":
-            return FieldType.Decimal
-        elif value == "__item__":
-            return FieldType.Item
-        elif value == "[__item__]":
-            return FieldType.ListOfItem
-        elif value == "none":
-            return FieldType.Undefined
-        else:
-            raise DatatypeException(f"Unknown field type {value}")
-
-    @classmethod
-    def get_keytype(cls, value: str) -> KeyType:
-        value = value.lower()
-        if value == "undefined":
-            return KeyType.Undefined
-        elif value == "primarykey" or value == "primary key":
-            return KeyType.PrimaryKey
-        elif value == "index":
-            return KeyType.Index
-        elif value == "unique":
-            return KeyType.Unique
-        elif value == "foreignkey" or value == "foreign key":
-            return KeyType.ForeignKey
-        elif value == "lookup":
-            return KeyType.Lookup
-        else:
-            raise DatatypeException(f"Unknown key type {value}")
-
-    @classmethod
-    def get_transformtype(cls, value: str) -> TransformType:
-        value = value.lower()
-        if value == "undefined" or value == "none":
-            return TransformType.Undefined
-        elif value == "map":
-            return TransformType.Map
-        elif value == "inttobool":
-            return TransformType.IntToBool
-        else:
-            raise DatatypeException(f"Unknown transform type {value}")
-
-    @classmethod
-    def get_querytype(cls, value: str) -> QueryType:
-        value = value.lower()
-        if value == "undefined":
-            return QueryType.Undefined
-        elif value == "fetchscalar":
-            return QueryType.FetchScalar
-        elif value == "fetchone":
-            return QueryType.FetchOne
-        elif value == "fetchall":
-            return QueryType.FetchAll
-        elif value == "execute":
-            return QueryType.Execute
-        else:
-            raise DatatypeException("Unknown query type {}".format(value))

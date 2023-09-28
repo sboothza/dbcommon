@@ -109,7 +109,7 @@ def test_generate_sqlite(schema, dictionary_file, big_word_dictionary_file, sqli
     assert sql["update"] is not None
     assert sql["fetch"] is not None
     assert sql["item_exists"] is not None
-
+    print(sql["create"])
 
 def test_generate_mysql(schema, dictionary_file, big_word_dictionary_file, mysql_connection_string):
     sql = generate_sql(schema, dictionary_file, big_word_dictionary_file, mysql_connection_string)
@@ -122,6 +122,7 @@ def test_generate_mysql(schema, dictionary_file, big_word_dictionary_file, mysql
     assert sql["update"] is not None
     assert sql["fetch"] is not None
     assert sql["item_exists"] is not None
+    print(sql["create"])
 
 
 def test_generate_pgsql(schema, dictionary_file, big_word_dictionary_file, pgsql_connection_string):

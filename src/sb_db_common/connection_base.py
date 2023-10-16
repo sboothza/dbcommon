@@ -1,4 +1,4 @@
-from src.base.managed_cursor import ManagedCursor
+from .managed_cursor import ManagedCursor
 
 
 class ConnectionBase(object):

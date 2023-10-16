@@ -1,5 +1,5 @@
-from src.base.connection_base import ConnectionBase
-from src.base.managed_cursor import ManagedCursor
+from .connection_base import ConnectionBase
+from .managed_cursor import ManagedCursor
 
 
 class Session(object):

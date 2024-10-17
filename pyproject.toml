@@ -9,12 +9,12 @@ build-backend = "setuptools.build_meta"
 name = "sb_db_common"
 readme = "README.md"
 urls = { "homepage" = "https://github.com/sboothza/dbcommon" }
-version = "0.0.2"
+version = "0.0.4"
 authors = [
     { name = "Stephen Booth", email = "stephen.booth.za@gmail.com" },
 ]
 description = "A set of db wrappers"
-requires-python = ">=3.7"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",

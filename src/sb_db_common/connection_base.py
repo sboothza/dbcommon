@@ -1,10 +1,15 @@
-from .managed_cursor import ManagedCursor
+from typing import Any
+
+from src.sb_db_common import ManagedCursor
 
 
 class ConnectionBase(object):
     def __init__(self, connection_string: str):
-        self.connection_string = connection_string
-        self.database = ""
+        self.connection_string: str = connection_string
+        self.database: str = ""
+        self.connection: Any = None
+        self.provider_name: str = ""
+        self.cursor = None
 
     def __enter__(self):
         return self
@@ -12,20 +17,26 @@ class ConnectionBase(object):
     def __exit__(self, type, value, traceback):
         self.close()
 
+    def start(self):
+        ...
+
     def commit(self):
-        pass
+        ...
 
     def rollback(self):
-        pass
+        ...
 
-    def execute(self, query: str, params: {}) -> ManagedCursor:
-        pass
+    def execute(self, query: str, params: None) -> ManagedCursor:
+        ...
 
     def execute_lastrowid(self, query: str, params: {}):
-        pass
+        ...
+
+    def fetch(self, query: str, params=None) -> ManagedCursor:
+        ...
+
+    def new_cursor(self) -> Any:
+        return self.connection.cursor()
 
     def close(self):
-        pass
-
-
-
+        ...

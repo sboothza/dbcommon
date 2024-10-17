@@ -1,4 +1,5 @@
 import re
+from typing import Any
 
 import mysql.connector
 
@@ -9,6 +10,7 @@ from .managed_cursor import ManagedCursor
 class MySqlConnection(ConnectionBase):
     def __init__(self, connection_string):
         super().__init__(connection_string)
+        self.provider_name = "mysql"
         match = re.match(r"mysql:\/\/(\w+):(\w+)@(\w+)\/(\w+)", self.connection_string)
         if match:
             self.user = match.group(1)
@@ -20,27 +22,34 @@ class MySqlConnection(ConnectionBase):
 
         self.connection = mysql.connector.connect(user=self.user, password=self.password, host=self.hostname,
                                                   database=self.database)
+        self.cursor = self.connection.cursor()
+
+    def start(self):
+        self.cursor.execute("BEGIN TRANSACTION;", {})
 
     def commit(self):
-        self.connection.commit()
+        self.cursor.execute("COMMIT;")
 
     def rollback(self):
-        self.connection.rollback()
+        self.cursor.execute("ROLLBACK;")
 
-    def execute(self, query: str, params: None) -> ManagedCursor:
+    def execute(self, query: str, params: None):
         if params is None:
             params = {}
-        cursor = self.connection.cursor(buffered=True)
+        self.cursor.execute(query, params)
+
+    def execute_lastrowid(self, query: str, params: {}) -> Any:
+        if params is None:
+            params = {}
+        self.cursor.execute(query, params)
+        return self.cursor.lastrowid
+
+    def fetch(self, query: str, params=None) -> ManagedCursor:
+        if params is None:
+            params = {}
+        cursor = self.connection.cursor()
         cursor.execute(query, params)
         return ManagedCursor(cursor)
 
-    def execute_lastrowid(self, query: str, params: {}):
-        if params is None:
-            params = {}
-        cursor = self.connection.cursor(buffered=True)
-        cursor.execute(query, params)
-        return cursor.lastrowid
-
     def close(self):
-        self.commit()
         self.connection.close()

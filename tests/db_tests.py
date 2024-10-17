@@ -75,3 +75,39 @@ class DbTests(unittest.TestCase):
             session.commit()
             row = session.fetch_one("select * from test where id = %(id)s", {"id": id})
             self.assertIsNone(row)
+
+    def test_transactions(self):
+        with SessionFactory.connect("sqlite://test.db") as session:
+            try:
+                session.execute("drop table test;")
+            except:
+                ...
+
+            session.commit()
+            session.execute("create table test(id integer not null primary key autoincrement, name text);")
+            session.commit()
+
+            id = session.execute_lastrowid("insert into test(name) values (:name);", {"name": "bob"})
+            row = session.fetch_one("select * from test where id = :id", {"id": id})
+            self.assertEqual(row[1], "bob")
+
+            session.rollback()
+            row = session.fetch_one("select * from test where id = :id", {"id": id})
+            self.assertIsNone(row)
+
+            id = session.execute_lastrowid("insert into test(name) values (:name);", {"name": "bob"})
+            row = session.fetch_one("select * from test where id = :id", {"id": id})
+            session.execute("update test set name = :name where id = :id", {"name": "Bill", "id": id})
+            row = session.fetch_one("select * from test where id = :id", {"id": id})
+            self.assertEqual(row[1], "Bill")
+            session.commit()
+            row = session.fetch_one("select * from test where id = :id", {"id": id})
+            self.assertEqual(row[1], "Bill")
+
+            session.execute("update test set name = :name where id = :id", {"name": "bob", "id": id})
+            row = session.fetch_one("select * from test where id = :id", {"id": id})
+            self.assertEqual(row[1], "bob")
+            session.rollback()
+
+            row = session.fetch_one("select * from test where id = :id", {"id": id})
+            self.assertEqual(row[1], "Bill")

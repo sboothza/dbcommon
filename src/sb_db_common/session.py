@@ -7,24 +7,28 @@ class Session(object):
         self.connection = connection
 
     def __enter__(self):
+        self.start()
         return self
 
     def __exit__(self, type, value, traceback):
         self.close()
 
     def close(self):
-        self.connection.commit()
+        self.commit()
         self.connection.close()
+
+    def start(self):
+        self.connection.start()
 
     def commit(self):
         self.connection.commit()
+        self.start()
 
     def rollback(self):
         self.connection.rollback()
+        self.start()
 
     def execute(self, query: str, params=None) -> None:
-        if params is None:
-            params = {}
         self.connection.execute(query, params)
 
     def execute_lastrowid(self, query: str, params=None):
@@ -43,13 +47,12 @@ class Session(object):
     def fetch_one(self, query: str, params=None):
         if params is None:
             params = {}
-        with self.connection.execute(query, params) as cursor:
-            return cursor.fetchone()
+        cursor = self.connection.new_cursor()
+        cursor.execute(query, params)
+        return cursor.fetchone()
 
     def fetch(self, query: str, params=None) -> ManagedCursor:
-        if params is None:
-            params = {}
-        return self.connection.execute(query, params)
+        return self.connection.fetch(query, params)
 
 
 class PersistentSession(Session):
@@ -61,11 +64,11 @@ class PersistentSession(Session):
             PersistentSession.__global_connection__ = connection
 
         self.connection = PersistentSession.__global_connection__
+        # self.in_transaction = False
+        # self.cursor = self.connection.cursor
 
     def __exit__(self, type, value, traceback):
         self.connection.commit()
 
     def close(self):
         pass
-
-

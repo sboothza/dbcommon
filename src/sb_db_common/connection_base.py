@@ -1,6 +1,6 @@
 from typing import Any
 
-from src.sb_db_common import ManagedCursor
+from .managed_cursor import ManagedCursor
 
 
 class ConnectionBase(object):

@@ -12,7 +12,7 @@ class MsSqlConnection(ConnectionBase):
         if connection_string == "":
             return
         super().__init__(connection_string)
-        match = re.match(r"mssql:\/\/([^:]+):([^@]+)@([^\/]+)\/([^\?]+)(\?(.+))?", self.connection_string)
+        match = re.match(r"mssql:\/\/([^:]+)?:?([^@]+)?@([^\/]+)\/([^\?]+)(\?(.+))?", self.connection_string)
         if match:
             self.user = match.group(1)
             self.password = match.group(2)

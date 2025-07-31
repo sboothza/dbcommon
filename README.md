@@ -54,7 +54,15 @@ CREATE TABLE test(
 `INSERT INTO test(name) VALUES (%(name)s) RETURNING id;`
 
 #### mssql
-Integrated security is supported, either by passing in a windows username / password, or by setting `trusted_connection=yes` and passing in a dummy username / password.  It will use the current logged in user. 
+```
+CREATE TABLE test(
+    id INT IDENTITY(1,1) NOT NULL PRIMARY KEY, 
+    name VARCHAR(50) NULL
+ );
+ ```
+`INSERT INTO test(name) output inserted.id VALUES (%(name)s);`
+
+Integrated security is supported, either by passing in a windows username / password, or by setting `trusted_connection=yes` - username / password are then optional, it will then ignore them if provided, and will use the current logged in user.  
 
 ## Building
 `python -m build `

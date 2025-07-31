@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 name = "sb_db_common"
 readme = "README.md"
 urls = { "homepage" = "https://github.com/sboothza/dbcommon" }
-version = "0.0.5"
+version = "0.0.8"
 authors = [
     { name = "Stephen Booth", email = "stephen.booth.za@gmail.com" },
 ]
@@ -20,7 +20,8 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = ["psycopg2 >= 2.9.9",
+dependencies = ["psycopg2-binary >= 2.9.9",
     "mysql-connector-python >= 8.1.0",
+    "pymssql >= 2.3.6",
     "protobuf >= 4.21.1"]
 

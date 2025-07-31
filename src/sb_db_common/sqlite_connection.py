@@ -5,11 +5,13 @@ from .connection_base import ConnectionBase
 from .managed_cursor import ManagedCursor
 from .utils import get_fullname, get_filename
 
-
 class SqliteConnection(ConnectionBase):
-    def __init__(self, connection_string):
-        super().__init__(connection_string)
+    def __init__(self, connection_string:str=""):
         self.provider_name = "sqlite"
+        if connection_string == "":
+            return
+
+        super().__init__(connection_string)
         connection_string = self.connection_string.replace("sqlite://", "")
         connection_string = get_fullname(connection_string)
         self.connection = sqlite3.connect(connection_string, check_same_thread=False)
@@ -31,7 +33,7 @@ class SqliteConnection(ConnectionBase):
             params = {}
         self.cursor.execute(query, params)
 
-    def execute_lastrowid(self, query: str, params: {})->Any:
+    def execute_lastrowid(self, query: str, params: {}) -> Any:
         if params is None:
             params = {}
         self.cursor.execute(query, params)

@@ -4,12 +4,15 @@ from .managed_cursor import ManagedCursor
 
 
 class ConnectionBase(object):
-    def __init__(self, connection_string: str):
+    def __init__(self, connection_string: str = ""):
         self.connection_string: str = connection_string
         self.database: str = ""
         self.connection: Any = None
         self.provider_name: str = ""
         self.cursor = None
+
+    def db_type(self):
+        return self.provider_name
 
     def __enter__(self):
         return self

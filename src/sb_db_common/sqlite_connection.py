@@ -16,6 +16,7 @@ class SqliteConnection(ConnectionBase):
         self.connection.isolation_level = None
         self.database = get_filename(connection_string)
         self.cursor = self.connection.cursor()
+        self.cursor.execute("PRAGMA journal_mode=WAL;")
 
     def start(self):
         self.cursor.execute("BEGIN TRANSACTION;", {})

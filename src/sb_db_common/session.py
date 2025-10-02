@@ -34,6 +34,14 @@ class Session(object):
     def execute_lastrowid(self, query: str, params=None):
         return self.connection.execute_lastrowid(query, params)
 
+    # def execute_outside_transaction(self, query: str, params=None) -> None:
+    #     if params is None:
+    #         params = {}
+    #     self.connection.commit()
+    #     self.connection.cursor.close()
+    #     self.connection.execute(query, params)
+    #     self.connection.start()
+
     def fetch_scalar(self, query: str, params=None):
         if params is None:
             params = {}

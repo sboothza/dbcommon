@@ -6,11 +6,13 @@ import mysql.connector
 from .connection_base import ConnectionBase
 from .managed_cursor import ManagedCursor
 
-
 class MySqlConnection(ConnectionBase):
-    def __init__(self, connection_string):
-        super().__init__(connection_string)
+    def __init__(self, connection_string: str = ""):
         self.provider_name = "mysql"
+        if connection_string == "":
+            return
+        super().__init__(connection_string)
+
         match = re.match(r"mysql:\/\/(\w+):(\w+)@(\w+)\/(\w+)", self.connection_string)
         if match:
             self.user = match.group(1)

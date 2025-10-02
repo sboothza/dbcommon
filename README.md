@@ -4,13 +4,15 @@ Thats what this is for.
 More consistent (Think ADO.NET) db connectivity  
 
 ## Overview
-Links psgsql, mysql and sqlite in a common interface  
+Links psgsql, mysql, mssql and sqlite in a common interface  
 Unit tests provided to show usage  
 
 ## Usage
 Connection string format is: `<provider>://<username>:<password>@<host>/<database>`  
 The supported providers are:
-`sqlite, mysql, pgsql`
+`sqlite, mysql, mssql, pgsql`
+
+The providers self-register. Call `SessionFactory.register()` before use.
 
 ```
 with SessionFactory.connect(<connection string>) as session:
@@ -51,7 +53,16 @@ CREATE TABLE test(
  ```
 `INSERT INTO test(name) VALUES (%(name)s) RETURNING id;`
 
+#### mssql
+```
+CREATE TABLE test(
+    id INT IDENTITY(1,1) NOT NULL PRIMARY KEY, 
+    name VARCHAR(50) NULL
+ );
+ ```
+`INSERT INTO test(name) output inserted.id VALUES (%(name)s);`
 
+Integrated security is supported, either by passing in a windows username / password, or by setting `trusted_connection=yes` - username / password are then optional, it will then ignore them if provided, and will use the current logged in user.  
 
 ## Building
 `python -m build `

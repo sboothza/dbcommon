@@ -7,6 +7,7 @@ src/sb_db_common/config_base.py
 src/sb_db_common/connection_base.py
 src/sb_db_common/exceptions.py
 src/sb_db_common/managed_cursor.py
+src/sb_db_common/mssql_connection.py
 src/sb_db_common/mysql_connection.py
 src/sb_db_common/pgsql_connection.py
 src/sb_db_common/session.py

@@ -4,16 +4,10 @@ import sys
 
 from .connection_base import ConnectionBase
 from .exceptions import DataException
-# from .mssql_connection import MsSqlConnection
-# from .mysql_connection import MySqlConnection
-# from .pgsql_connection import PgSqlConnection
 from .session import Session, PersistentSession
 
-# from .sqlite_connection import SqliteConnection
-
-
 class SessionFactory(object):
-    connections:dict[str, ConnectionBase] = {}
+    connections: dict[str, ConnectionBase] = {}
 
     @staticmethod
     def get_connection(connection_string: str) -> ConnectionBase:

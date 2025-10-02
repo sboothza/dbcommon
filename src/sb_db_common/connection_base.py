@@ -1,5 +1,5 @@
 from typing import Any
-
+import asyncio
 from .managed_cursor import ManagedCursor
 
 
@@ -18,28 +18,32 @@ class ConnectionBase(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        self.close()
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self.close())
+        except RuntimeError:
+            asyncio.run(self.close())
 
-    def start(self):
+    async def start(self):
         ...
 
-    def commit(self):
+    async def commit(self):
         ...
 
-    def rollback(self):
+    async def rollback(self):
         ...
 
-    def execute(self, query: str, params: None) -> ManagedCursor:
+    async def execute(self, query: str, params: None) -> ManagedCursor:
         ...
 
-    def execute_lastrowid(self, query: str, params: {}):
+    async def execute_lastrowid(self, query: str, params: Any):
         ...
 
-    def fetch(self, query: str, params=None) -> ManagedCursor:
+    async def fetch(self, query: str, params=None) -> ManagedCursor:
         ...
 
     def new_cursor(self) -> Any:
         return self.connection.cursor()
 
-    def close(self):
+    async def close(self):
         ...

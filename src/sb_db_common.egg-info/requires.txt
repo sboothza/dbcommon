@@ -1,4 +1,4 @@
-psycopg2-binary>=2.9.9
-mysql-connector-python>=8.1.0
-pymssql>=2.3.6
-protobuf>=4.21.1
+psycopg2-binary>=2.9.10
+mysql-connector-python>=9.4.0
+pymssql>=2.3.7
+protobuf>=6.32.1

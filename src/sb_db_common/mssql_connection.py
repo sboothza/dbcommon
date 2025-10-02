@@ -1,3 +1,4 @@
+import asyncio
 import re
 
 import pymssql
@@ -41,33 +42,38 @@ class MsSqlConnection(ConnectionBase):
     # def _trust_cert(self):
     #     return self.options.get("trust_cert", "yes") == "yes"
 
-    def start(self):
-        self.cursor.execute("BEGIN TRANSACTION;", {})
+    async def start(self):
+        await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, "BEGIN TRANSACTION;", {})
 
-    def commit(self):
-        self.cursor.execute("COMMIT;")
+    async def commit(self):
+        await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, "COMMIT;")
 
-    def rollback(self):
-        self.cursor.execute("ROLLBACK;")
+    async def rollback(self):
+        await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, "ROLLBACK;")
 
-    def execute(self, query: str, params: None):
+    async def execute(self, query: str, params: None):
         if params is None:
             params = {}
-        self.cursor.execute(query, params)
+        await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, query, params)
 
-    def execute_lastrowid(self, query: str, params: {}):
-        if params is None:
-            params = {}
-        cursor = self.connection.cursor()
-        cursor.execute(query, params)
-        return cursor.fetchone()[0]
-
-    def fetch(self, query: str, params=None) -> ManagedCursor:
+    async def execute_lastrowid(self, query: str, params: None):
         if params is None:
             params = {}
         cursor = self.connection.cursor()
-        cursor.execute(query, params)
+
+        def lam(cur):
+            cur.execute(query, params)
+            return cur.fetchone()[0]
+
+        return await asyncio.get_event_loop().run_in_executor(None, lam, cursor)
+
+    async def fetch(self, query: str, params=None) -> ManagedCursor:
+        if params is None:
+            params = {}
+        cursor = self.connection.cursor()
+
+        await asyncio.get_event_loop().run_in_executor(None, cursor.execute, query, params)
         return ManagedCursor(cursor)
 
-    def close(self):
-        self.connection.close()
+    async def close(self):
+        await asyncio.get_event_loop().run_in_executor(None, self.connection.close, None)

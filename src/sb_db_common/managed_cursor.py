@@ -1,3 +1,5 @@
+import asyncio
+
 class ManagedCursor(object):
 
     def __init__(self, cursor):
@@ -9,22 +11,23 @@ class ManagedCursor(object):
     def __exit__(self, type, value, traceback):
         self.cursor.close()
 
-    def close(self):
+    async def close(self):
         self.cursor.close()
 
-    def execute(self, sql: str, params: None):
+    async def execute(self, sql: str, params: None):
         if params is None:
             params = {}
-        return self.cursor.execute(sql, params)
 
-    def executemany(self, sql: str, seq_of_parameters):
-        return self.cursor.executemany(sql, seq_of_parameters)
+        return await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, sql, params)
 
-    def fetchall(self):
-        return self.cursor.fetchall()
+    async def executemany(self, sql: str, seq_of_parameters):
+        return await asyncio.get_event_loop().run_in_executor(None, self.cursor.executemany, sql, seq_of_parameters)
 
-    def fetchone(self):
-        return self.cursor.fetchone()
+    async def fetchall(self):
+        return await asyncio.get_event_loop().run_in_executor(None, lambda cursor: cursor.fetchall(), self.cursor)
+
+    async def fetchone(self):
+        return await asyncio.get_event_loop().run_in_executor(None, lambda cursor: cursor.fetchone(), self.cursor)
 
     def __iter__(self):
         return self.cursor.__iter__()
@@ -45,5 +48,5 @@ class ManagedCursor(object):
     #     return self.cursor.lastrowid
 
     @property
-    def rowcount(self):
-        return self.cursor.rowcount
+    async def rowcount(self):
+        return await asyncio.get_event_loop().run_in_executor(None, self.cursor.rowcount, None)

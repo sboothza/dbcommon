@@ -1,10 +1,10 @@
 import sqlite3
 from typing import Any
-import asyncio
 
 from .connection_base import ConnectionBase
 from .managed_cursor import ManagedCursor
-from .utils import get_fullname, get_filename
+from .utils import get_fullname, get_filename, run_sync_as_async
+
 
 class SqliteConnection(ConnectionBase):
     def __init__(self, connection_string: str = ""):
@@ -21,18 +21,27 @@ class SqliteConnection(ConnectionBase):
         self.cursor = self.connection.cursor()
 
     async def start(self):
-        await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, "BEGIN TRANSACTION;", {})
+        if self.in_transaction:
+            return
+        self.in_transaction = True
+        await run_sync_as_async(self.cursor.execute, "BEGIN TRANSACTION;", {})
 
     async def commit(self):
-        await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, "COMMIT;")
+        if not self.in_transaction:
+            return
+        self.in_transaction = False
+        await run_sync_as_async(self.cursor.execute, "COMMIT;")
 
     async def rollback(self):
-        await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, "ROLLBACK;")
+        if not self.in_transaction:
+            return
+        self.in_transaction = False
+        await run_sync_as_async(self.cursor.execute, "ROLLBACK;")
 
     async def execute(self, query: str, params: None):
         if params is None:
             params = {}
-        await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, query, params)
+        await run_sync_as_async(self.cursor.execute, query, params)
 
     async def execute_lastrowid(self, query: str, params: None) -> Any:
         if params is None:
@@ -42,15 +51,15 @@ class SqliteConnection(ConnectionBase):
             cur.execute(query, params)
             return cur.lastrowid
 
-        return await asyncio.get_event_loop().run_in_executor(None, lam, self.cursor)
+        return await run_sync_as_async(lam, self.cursor)
 
     async def fetch(self, query: str, params=None) -> ManagedCursor:
         if params is None:
             params = {}
         cursor = self.connection.cursor()
 
-        await asyncio.get_event_loop().run_in_executor(None, cursor.execute, query, params)
+        await run_sync_as_async(cursor.execute, query, params)
         return ManagedCursor(cursor)
 
     async def close(self):
-        await asyncio.get_event_loop().run_in_executor(None, self.connection.close, None)
+        await run_sync_as_async(self.connection.close)

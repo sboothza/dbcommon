@@ -1,4 +1,5 @@
-import asyncio
+from sb_db_common.utils import run_sync_as_async
+
 
 class ManagedCursor(object):
 
@@ -18,16 +19,16 @@ class ManagedCursor(object):
         if params is None:
             params = {}
 
-        return await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, sql, params)
+        return await run_sync_as_async( self.cursor.execute, sql, params)
 
     async def executemany(self, sql: str, seq_of_parameters):
-        return await asyncio.get_event_loop().run_in_executor(None, self.cursor.executemany, sql, seq_of_parameters)
+        return await run_sync_as_async( self.cursor.executemany, sql, seq_of_parameters)
 
     async def fetchall(self):
-        return await asyncio.get_event_loop().run_in_executor(None, lambda cursor: cursor.fetchall(), self.cursor)
+        return await run_sync_as_async( self.cursor.fetchall)
 
     async def fetchone(self):
-        return await asyncio.get_event_loop().run_in_executor(None, lambda cursor: cursor.fetchone(), self.cursor)
+        return await run_sync_as_async(self.cursor.fetchone)
 
     def __iter__(self):
         return self.cursor.__iter__()
@@ -49,4 +50,4 @@ class ManagedCursor(object):
 
     @property
     async def rowcount(self):
-        return await asyncio.get_event_loop().run_in_executor(None, self.cursor.rowcount, None)
+        return await run_sync_as_async(self.cursor.rowcount)

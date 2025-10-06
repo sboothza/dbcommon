@@ -6,6 +6,7 @@ from .connection_base import ConnectionBase
 from .exceptions import DataException
 from .session import Session, PersistentSession
 
+
 class SessionFactory(object):
     connections: dict[str, ConnectionBase] = {}
 
@@ -44,3 +45,6 @@ class SessionFactory(object):
                         if type not in SessionFactory.connections:
                             print(f"Registering connection type: {type}")
                             SessionFactory.connections[type] = obj
+
+
+SessionFactory.register()

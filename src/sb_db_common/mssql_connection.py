@@ -1,10 +1,11 @@
-import asyncio
 import re
 
 import pymssql
 
 from .connection_base import ConnectionBase
 from .managed_cursor import ManagedCursor
+from .utils import run_sync_as_async
+
 
 class MsSqlConnection(ConnectionBase):
     def __init__(self, connection_string: str = ""):
@@ -43,18 +44,18 @@ class MsSqlConnection(ConnectionBase):
     #     return self.options.get("trust_cert", "yes") == "yes"
 
     async def start(self):
-        await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, "BEGIN TRANSACTION;", {})
+        await run_sync_as_async(self.cursor.execute, "BEGIN TRANSACTION;", {})
 
     async def commit(self):
-        await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, "COMMIT;")
+        await run_sync_as_async(self.cursor.execute, "COMMIT;")
 
     async def rollback(self):
-        await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, "ROLLBACK;")
+        await run_sync_as_async(self.cursor.execute, "ROLLBACK;")
 
     async def execute(self, query: str, params: None):
         if params is None:
             params = {}
-        await asyncio.get_event_loop().run_in_executor(None, self.cursor.execute, query, params)
+        await run_sync_as_async(self.cursor.execute, query, params)
 
     async def execute_lastrowid(self, query: str, params: None):
         if params is None:
@@ -65,15 +66,15 @@ class MsSqlConnection(ConnectionBase):
             cur.execute(query, params)
             return cur.fetchone()[0]
 
-        return await asyncio.get_event_loop().run_in_executor(None, lam, cursor)
+        return await run_sync_as_async(lam, cursor)
 
     async def fetch(self, query: str, params=None) -> ManagedCursor:
         if params is None:
             params = {}
         cursor = self.connection.cursor()
 
-        await asyncio.get_event_loop().run_in_executor(None, cursor.execute, query, params)
+        await run_sync_as_async(cursor.execute, query, params)
         return ManagedCursor(cursor)
 
     async def close(self):
-        await asyncio.get_event_loop().run_in_executor(None, self.connection.close, None)
+        await run_sync_as_async(self.connection.close)

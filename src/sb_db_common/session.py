@@ -3,9 +3,11 @@ import asyncio
 from .connection_base import ConnectionBase
 from .managed_cursor import ManagedCursor
 
+
 class Session(object):
     def __init__(self, connection: ConnectionBase = None):
         self.connection = connection
+        self.in_transaction = False
 
     def __enter__(self):
         try:
@@ -35,14 +37,22 @@ class Session(object):
             await self.connection.close()
 
     async def start(self):
-        await self.connection.start()
+        if not self.in_transaction:
+            await self.connection.start()
+            self.in_transaction = True
 
     async def commit(self):
-        await self.connection.commit()
+        if self.in_transaction:
+            await self.connection.commit()
+
+        self.in_transaction = False
         await self.start()
 
     async def rollback(self):
-        await self.connection.rollback()
+        if self.in_transaction:
+            await self.connection.rollback()
+
+        self.in_transaction = False
         await self.start()
 
     async def execute(self, query: str, params=None) -> None:
@@ -70,6 +80,7 @@ class Session(object):
 
     async def fetch(self, query: str, params=None) -> ManagedCursor:
         return await self.connection.fetch(query, params)
+
 
 class PersistentSession(Session):
     __global_connection__: ConnectionBase = None

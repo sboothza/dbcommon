@@ -21,21 +21,12 @@ class SqliteConnection(ConnectionBase):
         self.cursor = self.connection.cursor()
 
     async def start(self):
-        if self.in_transaction:
-            return
-        self.in_transaction = True
         await run_sync_as_async(self.cursor.execute, "BEGIN TRANSACTION;", {})
 
     async def commit(self):
-        if not self.in_transaction:
-            return
-        self.in_transaction = False
         await run_sync_as_async(self.cursor.execute, "COMMIT;")
 
     async def rollback(self):
-        if not self.in_transaction:
-            return
-        self.in_transaction = False
         await run_sync_as_async(self.cursor.execute, "ROLLBACK;")
 
     async def execute(self, query: str, params: None):

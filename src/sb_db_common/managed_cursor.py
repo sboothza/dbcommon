@@ -1,4 +1,4 @@
-from sb_db_common.utils import run_sync_as_async
+from .utils import run_sync_as_async
 
 
 class ManagedCursor(object):

@@ -11,7 +11,6 @@ class ConnectionBase(object):
         self.connection: Any = None
         self.provider_name: str = ""
         self.cursor = None
-        self.in_transaction = False
 
     def db_type(self):
         return self.provider_name

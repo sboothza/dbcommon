@@ -44,21 +44,19 @@ class Session(object):
     async def commit(self):
         if self.in_transaction:
             await self.connection.commit()
-
-        self.in_transaction = False
-        await self.start()
+            self.in_transaction = False
 
     async def rollback(self):
         if self.in_transaction:
             await self.connection.rollback()
-
-        self.in_transaction = False
-        await self.start()
+            self.in_transaction = False
 
     async def execute(self, query: str, params=None) -> None:
+        await self.start()  # Ensure transaction is started
         await self.connection.execute(query, params)
 
     async def execute_lastrowid(self, query: str, params=None):
+        await self.start()  # Ensure transaction is started
         return await self.connection.execute_lastrowid(query, params)
 
     async def fetch_scalar(self, query: str, params=None):
@@ -91,7 +89,7 @@ class PersistentSession(Session):
             PersistentSession.__global_connection__ = connection
 
         self.connection = PersistentSession.__global_connection__
-        # self.in_transaction = False
+        self.in_transaction = False
         # self.cursor = self.connection.cursor
 
     def __exit__(self, type, value, traceback):

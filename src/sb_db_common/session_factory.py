@@ -8,7 +8,7 @@ from .session import Session, PersistentSession
 
 
 class SessionFactory(object):
-    connections: dict[str, ConnectionBase] = {}
+    connections: dict[str, type] = {}
 
     @staticmethod
     def get_connection(connection_string: str) -> ConnectionBase:

@@ -48,3 +48,6 @@ class ConnectionBase(object):
 
     async def close(self):
         ...
+
+    def translate_query(self, query:str)->str:
+        ...

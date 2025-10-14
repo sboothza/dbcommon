@@ -79,6 +79,9 @@ class Session(object):
     async def fetch(self, query: str, params=None) -> ManagedCursor:
         return await self.connection.fetch(query, params)
 
+    def translate_query(self, query:str)->str:
+        return self.connection.translate_query(query)
+
 
 class PersistentSession(Session):
     __global_connection__: ConnectionBase = None
@@ -101,3 +104,5 @@ class PersistentSession(Session):
 
     async def close(self):
         pass
+
+

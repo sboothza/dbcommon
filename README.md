@@ -69,3 +69,19 @@ Integrated security is supported, either by passing in a windows username / pass
 
 ## Deploying
 `python -m twine upload --repository pypi dist/*`
+
+```
+create table bob
+(
+    id int primary key autoincrement, 
+    name text(50) null unique, 
+    salary double not null default(0), 
+    createdate datetime not null
+)
+
+insert into bob(name, salary) values (:name, :salary) returning id;
+
+
+
+
+```

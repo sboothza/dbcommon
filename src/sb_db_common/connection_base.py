@@ -1,6 +1,7 @@
 import asyncio
 from typing import Any
 
+from .datatypes import DataType
 from .managed_cursor import ManagedCursor
 
 
@@ -50,4 +51,9 @@ class ConnectionBase(object):
         ...
 
     def translate_query(self, query:str)->str:
+        ...
+
+
+
+    def make_specific_datatype(self, data_type:DataType)->str:
         ...

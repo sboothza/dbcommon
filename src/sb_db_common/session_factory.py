@@ -9,6 +9,7 @@ from .session import Session, PersistentSession
 
 class SessionFactory(object):
     connections: dict[str, type] = {}
+    queries:dict[str,str] = {}
 
     @staticmethod
     def get_connection(connection_string: str) -> ConnectionBase:
@@ -18,8 +19,8 @@ class SessionFactory(object):
 
             if db_type in SessionFactory.connections:
                 return SessionFactory.connections[db_type](connection_string)
-            else:
-                raise DataException("invalid connection string")
+
+        raise DataException("invalid connection string")
 
     @staticmethod
     def connect(connection_string: str) -> Session:
@@ -46,5 +47,13 @@ class SessionFactory(object):
                             print(f"Registering connection type: {type}")
                             SessionFactory.connections[type] = obj
 
+
+    @staticmethod
+    def resolve_query(con:ConnectionBase, query:str)->str:
+        result = SessionFactory.queries.get(query)
+        if result is None:
+            result = con.translate_query(query)
+            SessionFactory.queries[query] = result
+        return result
 
 SessionFactory.register()

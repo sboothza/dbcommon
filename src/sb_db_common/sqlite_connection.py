@@ -55,21 +55,21 @@ class SqliteConnection(ConnectionBase):
     async def close(self):
         await run_sync_as_async(self.connection.close)
 
-    @staticmethod
-    def translate_datatypes(query: str) -> str:
-        result = re.sub(r"(varchar\((\w+)\))\w+", "TEXT", query, flags=re.IGNORECASE)
-        result = re.sub(r"(char\((\w+)\))\w+", "TEXT", result, flags=re.IGNORECASE)
-        result = re.sub(r"(BIGINT|SMALLINT|INT)\w+", "INTEGER", result, flags=re.IGNORECASE)
-        result = re.sub(r"(REAL|FLOAT|DOUBLE)\w+", "REAL", result, flags=re.IGNORECASE)
-        return result
-
-    @staticmethod
-    def translate_autoincrement(query: str) -> str:
-        result = re.sub(r"(AUTOINCREMENT|AUTO_INCREMENT)", "AUTOINCREMENT", query, flags=re.IGNORECASE)
-        result = re.sub(r"(GENERATED ALWAYS AS IDENTITY)", "AUTOINCREMENT", result, flags=re.IGNORECASE)
-        result = re.sub(r"(IDENTITY(1, 1))", "AUTOINCREMENT", result, flags=re.IGNORECASE)
-        return result
-
+    # @staticmethod
+    # def translate_datatypes(query: str) -> str:
+    #     result = re.sub(r"(varchar\((\w+)\))\w+", "TEXT", query, flags=re.IGNORECASE)
+    #     result = re.sub(r"(char\((\w+)\))\w+", "TEXT", result, flags=re.IGNORECASE)
+    #     result = re.sub(r"(BIGINT|SMALLINT|INT)\w+", "INTEGER", result, flags=re.IGNORECASE)
+    #     result = re.sub(r"(REAL|FLOAT|DOUBLE)\w+", "REAL", result, flags=re.IGNORECASE)
+    #     return result
+    #
+    # @staticmethod
+    # def translate_autoincrement(query: str) -> str:
+    #     result = re.sub(r"(AUTOINCREMENT|AUTO_INCREMENT)", "AUTOINCREMENT", query, flags=re.IGNORECASE)
+    #     result = re.sub(r"(GENERATED ALWAYS AS IDENTITY)", "AUTOINCREMENT", result, flags=re.IGNORECASE)
+    #     result = re.sub(r"(IDENTITY(1, 1))", "AUTOINCREMENT", result, flags=re.IGNORECASE)
+    #     return result
+    #
     @staticmethod
     def translate_return_autoincrement_id(query: str) -> str:
         result = query
@@ -87,15 +87,9 @@ class SqliteConnection(ConnectionBase):
         return result
 
     def translate_query(self, query: str) -> str:
-        # translate datatypes
-        result = self.translate_datatypes(query)
-
-        # translate AUTOINCREMENT
-        result = self.translate_autoincrement(result)
-
         # translate parameters
         # default params are fine
 
         # translate return AUTOINCREMENT id
-        result = self.translate_return_autoincrement_id(result)
+        result = self.translate_return_autoincrement_id(query)
         return result

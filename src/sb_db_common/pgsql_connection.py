@@ -63,23 +63,23 @@ class PgSqlConnection(ConnectionBase):
     async def close(self):
         await run_sync_as_async(self.connection.close)
 
-    @staticmethod
-    def translate_datatypes(query: str) -> str:
-        result = query
-        result = re.sub(r"(TEXT)", "VARCHAR(MAX)", result, flags=re.IGNORECASE)
-        result = re.sub(r"(REAL|FLOAT|DOUBLE)", "DOUBLE", result, flags=re.IGNORECASE)
-        return result
-
-    @staticmethod
-    def translate_autoincrement(query: str) -> str:
-        result = re.sub(r"(AUTOINCREMENT|AUTO_INCREMENT)", "GENERATED ALWAYS AS IDENTITY", query, flags=re.IGNORECASE)
-        result = re.sub(r"(IDENTITY(1, 1))", "GENERATED ALWAYS AS IDENTITY", result, flags=re.IGNORECASE)
-        return result
+    # @staticmethod
+    # def translate_datatypes(query: str) -> str:
+    #     result = query
+    #     result = re.sub(r"(TEXT)", "VARCHAR(MAX)", result, flags=re.IGNORECASE)
+    #     result = re.sub(r"(REAL|FLOAT|DOUBLE)", "DOUBLE", result, flags=re.IGNORECASE)
+    #     return result
+    #
+    # @staticmethod
+    # def translate_autoincrement(query: str) -> str:
+    #     result = re.sub(r"(AUTOINCREMENT|AUTO_INCREMENT)", "GENERATED ALWAYS AS IDENTITY", query, flags=re.IGNORECASE)
+    #     result = re.sub(r"(IDENTITY(1, 1))", "GENERATED ALWAYS AS IDENTITY", result, flags=re.IGNORECASE)
+    #     return result
 
     @staticmethod
     def translate_parameters(query: str) -> str:
         result = query
-        result = re.sub(r"(:(\w+))", "%(${2})s", query, flags=re.IGNORECASE)
+        result = re.sub(r"(:(\w+))", r"%(\g<2>)s", result, flags=re.IGNORECASE)
         return result
 
     @staticmethod
@@ -88,7 +88,7 @@ class PgSqlConnection(ConnectionBase):
         if "returning " in result.lower():
             return result
 
-        match = re.match("output inserted\.(\w+)", result, flags=re.IGNORECASE)
+        match = re.match(r"output inserted\.(\w+)", result, flags=re.IGNORECASE)
         if match:
             field = match.group(1)
             result = result.replace(";", "")
@@ -96,18 +96,16 @@ class PgSqlConnection(ConnectionBase):
             result += f" returning {field};"
             return result
 
-        raise DataException("unknown return field!")
+        # raise DataException("unknown return field!")
+        return result
 
     def translate_query(self, query: str) -> str:
-        # translate datatypes
-        result = self.translate_datatypes(query)
-
-        # translate AUTOINCREMENT
-        result = self.translate_autoincrement(result)
-
-        # translate parameters
-        result = self.translate_parameters(result)
+        result = self.translate_parameters(query)
 
         # translate return AUTOINCREMENT id
         result = self.translate_return_autoincrement_id(result)
+
+        result = re.sub(r"(%%)", "##", result, flags=re.IGNORECASE)
+        result = re.sub(r"(%[^%(]+%)", r"%\g<1>%", result, flags=re.IGNORECASE)
+        result = re.sub(r"(##)", "%%", result, flags=re.IGNORECASE)
         return result

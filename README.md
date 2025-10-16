@@ -74,9 +74,11 @@ Integrated security is supported, either by passing in a windows username / pass
 create table bob
 (
     id int primary key autoincrement, 
-    name text(50) null unique, 
-    salary double not null default(0), 
-    createdate datetime not null
+    name string(50) null unique, 
+    salary float not null default(0), 
+    createdate datetime not null,
+    description text null,
+    active bool not null default(1)
 )
 
 insert into bob(name, salary) values (:name, :salary) returning id;

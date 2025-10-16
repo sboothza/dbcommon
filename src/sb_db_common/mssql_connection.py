@@ -80,24 +80,24 @@ class MsSqlConnection(ConnectionBase):
     async def close(self):
         await run_sync_as_async(self.connection.close)
 
-    @staticmethod
-    def translate_datatypes(query: str) -> str:
-        result = query
-        result = re.sub(r"(TEXT)", "VARCHAR(MAX)", result, flags=re.IGNORECASE)
-        result = re.sub(r"(INTEGER)", "INT", result, flags=re.IGNORECASE)
-        result = re.sub(r"(REAL|FLOAT|DOUBLE)", "DOUBLE", result, flags=re.IGNORECASE)
-        return result
-
-    @staticmethod
-    def translate_autoincrement(query: str) -> str:
-        result = re.sub(r"(\w+)\s+(INT|INTEGER)\s+(NOT\s+NULL)?\s+(PRIMARY\s+KEY)\s+(AUTOINCREMENT|AUTO_INCREMENT)", "${1} ${2} IDENTITY(1,1) ${3} ${4}", query, flags=re.IGNORECASE)
-        result = re.sub(r"(\w+)\s+(INT|INTEGER)\s+(NOT\s+NULL)?\s+(PRIMARY\s+KEY)\s+(GENERATED ALWAYS AS IDENTITY)", "${1} ${2} IDENTITY(1,1) ${3} ${4}", result, flags=re.IGNORECASE)
-        return result
+    # @staticmethod
+    # def translate_datatypes(query: str) -> str:
+    #     result = query
+    #     result = re.sub(r"(TEXT)", "VARCHAR(MAX)", result, flags=re.IGNORECASE)
+    #     result = re.sub(r"(INTEGER)", "INT", result, flags=re.IGNORECASE)
+    #     result = re.sub(r"(REAL|FLOAT|DOUBLE)", "DOUBLE", result, flags=re.IGNORECASE)
+    #     return result
+    #
+    # @staticmethod
+    # def translate_autoincrement(query: str) -> str:
+    #     result = re.sub(r"(\w+)\s+(INT|INTEGER)\s+(NOT\s+NULL)?\s+(PRIMARY\s+KEY)\s+(AUTOINCREMENT|AUTO_INCREMENT)", "${1} ${2} IDENTITY(1,1) ${3} ${4}", query, flags=re.IGNORECASE)
+    #     result = re.sub(r"(\w+)\s+(INT|INTEGER)\s+(NOT\s+NULL)?\s+(PRIMARY\s+KEY)\s+(GENERATED ALWAYS AS IDENTITY)", "${1} ${2} IDENTITY(1,1) ${3} ${4}", result, flags=re.IGNORECASE)
+    #     return result
 
     @staticmethod
     def translate_parameters(query: str) -> str:
         result = query
-        result = re.sub(r"(:(\w+))", "%(${2})s", result, flags=re.IGNORECASE)
+        result = re.sub(r"(:(\w+))", "%(\g<2>)s", result, flags=re.IGNORECASE)
         return result
 
     @staticmethod
@@ -114,14 +114,8 @@ class MsSqlConnection(ConnectionBase):
             raise DataException("unknown return field!")
 
     def translate_query(self, query: str) -> str:
-        # translate datatypes
-        result = self.translate_datatypes(query)
-
-        # translate AUTOINCREMENT
-        result = self.translate_autoincrement(result)
-
         # translate parameters
-        result = self.translate_parameters(result)
+        result = self.translate_parameters(query)
 
         # translate return AUTOINCREMENT id
         result = self.translate_return_autoincrement_id(result)

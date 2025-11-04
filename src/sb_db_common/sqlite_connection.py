@@ -6,7 +6,7 @@ from .managed_cursor import ManagedCursor
 from .utils import get_fullname, get_filename
 
 class SqliteConnection(ConnectionBase):
-    def __init__(self, connection_string:str=""):
+    def __init__(self, connection_string: str = ""):
         self.provider_name = "sqlite"
         if connection_string == "":
             return
@@ -33,7 +33,7 @@ class SqliteConnection(ConnectionBase):
             params = {}
         self.cursor.execute(query, params)
 
-    def execute_lastrowid(self, query: str, params: {}) -> Any:
+    def execute_lastrowid(self, query: str, params: dict) -> Any:
         if params is None:
             params = {}
         self.cursor.execute(query, params)

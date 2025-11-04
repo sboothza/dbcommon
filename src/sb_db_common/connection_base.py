@@ -32,7 +32,7 @@ class ConnectionBase(object):
     def execute(self, query: str, params: None) -> ManagedCursor:
         ...
 
-    def execute_lastrowid(self, query: str, params: {}):
+    def execute_lastrowid(self, query: str, params: dict):
         ...
 
     def fetch(self, query: str, params=None) -> ManagedCursor:

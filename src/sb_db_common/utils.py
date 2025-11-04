@@ -43,21 +43,21 @@ def clean_string(dirty: str) -> str:
     return dirty.strip()
 
 
-def find_in_list(value: str, items: []) -> int:
+def find_in_list(value: str, items: list) -> int:
     for i in range(len(items)):
         if items[i] == value:
             return i
     return -1
 
 
-def find_first_in(value: str, items: [str]) -> tuple[int, str]:
+def find_first_in(value: str, items: list[str]) -> tuple[int, str]:
     for i in range(len(items)):
         if items[i] in value:
             return value.find(items[i]), items[i]
     return -1, ""
 
 
-def find_first_in_array(value: str, items: [[str]]) -> tuple[int, [str]]:
+def find_first_in_array(value: str, items: list[str]) -> tuple[int, list[str]]:
     for i in range(len(items)):
         if items[i][0] in value:
             return value.find(items[i][0]), items[i][1:]

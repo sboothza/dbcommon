@@ -30,7 +30,8 @@ class ManagedCursor(object):
         return self.cursor.__iter__()
 
     def __next__(self):
-        return self.cursor.__next__()
+        next = self.cursor.__next__()
+        return next
 
     @property
     def connection(self):

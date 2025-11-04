@@ -13,7 +13,7 @@ class MySqlConnection(ConnectionBase):
             return
         super().__init__(connection_string)
 
-        match = re.match(r"mysql:\/\/(\w+):(\w+)@(\w+)\/(\w+)", self.connection_string)
+        match = re.match(r"mysql://(\w+):(\w+)@(\w+)/(\w+)", self.connection_string)
         if match:
             self.user = match.group(1)
             self.password = match.group(2)
@@ -40,7 +40,7 @@ class MySqlConnection(ConnectionBase):
             params = {}
         self.cursor.execute(query, params)
 
-    def execute_lastrowid(self, query: str, params: {}) -> Any:
+    def execute_lastrowid(self, query: str, params: dict) -> Any:
         if params is None:
             params = {}
         self.cursor.execute(query, params)

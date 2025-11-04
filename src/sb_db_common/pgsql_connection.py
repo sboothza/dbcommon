@@ -6,13 +6,13 @@ from .connection_base import ConnectionBase
 from .managed_cursor import ManagedCursor
 
 class PgSqlConnection(ConnectionBase):
-    def __init__(self, connection_string:str=""):
+    def __init__(self, connection_string: str = ""):
         self.provider_name = "pgsql"
         if connection_string == "":
             return
 
         super().__init__(connection_string)
-        match = re.match(r"pgsql:\/\/(\w+):(\w+)@(\w+)\/(\w+)", self.connection_string)
+        match = re.match(r"pgsql://(\w+):(\w+)@(\w+)/(\w+)", self.connection_string)
         if match:
             self.user = match.group(1)
             self.password = match.group(2)
@@ -39,7 +39,7 @@ class PgSqlConnection(ConnectionBase):
             params = {}
         self.cursor.execute(query, params)
 
-    def execute_lastrowid(self, query: str, params: {}):
+    def execute_lastrowid(self, query: str, params: dict):
         if params is None:
             params = {}
         cursor = self.connection.cursor()

@@ -1,5 +1,7 @@
 import unittest
+from time import sleep
 
+from sb_db_common.queued_session import QueuedSession
 from src.sb_db_common import SessionFactory
 
 
@@ -143,3 +145,30 @@ class DbTests(unittest.TestCase):
 
             row = session.fetch_one("select * from test where id = :id", {"id": id})
             self.assertEqual(row[1], "Bill")
+
+    def test_crud_queued(self):
+        with QueuedSession(SessionFactory.connect("sqlite://:memory:")) as session:
+            sleep(2)
+            session.execute("create table test(id integer not null primary key autoincrement, name text);")
+            session.commit()
+
+            # insert and select
+            id = session.execute_lastrowid("insert into test(name) values (:name);", {"name": "bob"})
+            session.commit()
+
+            row = session.fetch_one("select * from test where id = :id", {"id": id})
+            self.assertEqual(row[1], "bob")
+
+            # update
+            session.execute("update test set name = :name where id = :id", {"id": id, "name": "bob1"})
+            session.commit()
+
+            row = session.fetch_one("select * from test where id = :id", {"id": id})
+            self.assertEqual(row[1], "bob1")
+
+            # delete
+            session.execute("delete from test where id = :id", {"id": id})
+            session.commit()
+
+            row = session.fetch_one("select * from test where id = :id", {"id": id})
+            self.assertIsNone(row)

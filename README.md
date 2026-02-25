@@ -4,7 +4,7 @@ Thats what this is for.
 More consistent (Think ADO.NET) db connectivity  
 
 ## Overview
-Links psgsql, mysql, mssql and sqlite in a common interface  
+Links pgsql, mysql, mssql, oracle and sqlite in a common interface  
 Unit tests provided to show usage  
 
 ## Exposed API
@@ -14,7 +14,7 @@ Import from `sb_db_common`:
 ```python
 from sb_db_common import (
     SessionFactory, Session, PersistentSession,
-    ConnectionBase, MySqlConnection, PgSqlConnection, MsSqlConnection, SqliteConnection,
+    ConnectionBase, MySqlConnection, PgSqlConnection, MsSqlConnection, SqliteConnection, OracleConnection, 
     ManagedCursor, ConfigBase, RepositoryBase, TableBase,
     DataException, DatatypeException,
 )
@@ -24,7 +24,7 @@ from sb_db_common import (
 
 **`ConnectionBase`** — Abstract base for all database connections. Holds `connection_string`, `database`, and `connection`. Subclasses implement `start()`, `commit()`, `rollback()`, `execute()`, `execute_lastrowid()`, `fetch()`, and `close()`. Use as a base when adding a new provider.
 
-**`MySqlConnection`**, **`PgSqlConnection`**, **`MsSqlConnection`**, **`SqliteConnection`** — Concrete connection classes for MySQL, PostgreSQL, SQL Server, and SQLite. Usually created via `SessionFactory.get_connection(connection_string)` rather than instantiated directly.
+**`MySqlConnection`**, **`PgSqlConnection`**, **`MsSqlConnection`**, **`SqliteConnection`**, **`OracleConnection`** — Concrete connection classes for MySQL, PostgreSQL, SQL Server, and SQLite. Usually created via `SessionFactory.get_connection(connection_string)` rather than instantiated directly.
 
 ```python
 from sb_db_common import SessionFactory
@@ -143,7 +143,7 @@ except DataException as e:
 ## Usage
 Connection string format is: `<provider>://<username>:<password>@<host>/<database>`  
 The supported providers are:
-`sqlite, mysql, mssql, pgsql`
+`sqlite, mysql, mssql, pgsql, oracle`
 
 The providers self-register. Call `SessionFactory.register()` before use.
 
@@ -185,6 +185,15 @@ CREATE TABLE test(
  );
  ```
 `INSERT INTO test(name) VALUES (%(name)s) RETURNING id;`
+
+#### oracle
+```
+CREATE TABLE test(
+    id id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
+    name VARCHAR(50) NULL
+ );
+ ```
+`INSERT INTO test(name) VALUES (:name) RETURNING id;`
 
 #### mssql
 ```

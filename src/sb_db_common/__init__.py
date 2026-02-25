@@ -6,7 +6,9 @@ from .mysql_connection import MySqlConnection
 from .pgsql_connection import PgSqlConnection
 from .mssql_connection import MsSqlConnection
 from .sqlite_connection import SqliteConnection
+from .oracle_connection import OracleConnection
 from .session import Session, PersistentSession
 from .session_factory import SessionFactory
-from .repository_base import RepositoryBase
 from .table_base import TableBase
+from .repository_base import RepositoryBase
+

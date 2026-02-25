@@ -39,7 +39,7 @@ class ManagedCursor(object):
 
     @property
     def description(self):
-        return self.cursor.description
+        return [c[0] for c in self.cursor.description]
 
     # @property
     # def lastrowid(self):

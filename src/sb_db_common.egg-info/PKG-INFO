@@ -1,17 +1,16 @@
 Metadata-Version: 2.4
 Name: sb_db_common
-Version: 0.0.8
+Version: 0.0.11
 Summary: A set of db wrappers
 Author-email: Stephen Booth <stephen.booth.za@gmail.com>
 Project-URL: homepage, https://github.com/sboothza/dbcommon
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: psycopg2-binary>=2.9.9
-Requires-Dist: mysql-connector-python>=8.1.0
+Requires-Dist: mysql-connector-python>=9.3.0
 Requires-Dist: pymssql>=2.3.6
 Requires-Dist: protobuf>=4.21.1
 Dynamic: license-file

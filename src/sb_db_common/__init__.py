@@ -8,3 +8,5 @@ from .mssql_connection import MsSqlConnection
 from .sqlite_connection import SqliteConnection
 from .session import Session, PersistentSession
 from .session_factory import SessionFactory
+from .repository_base import RepositoryBase
+from .table_base import TableBase

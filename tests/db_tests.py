@@ -172,3 +172,18 @@ class DbTests(unittest.TestCase):
 
             row = session.fetch_one("select * from test where id = :id", {"id": id})
             self.assertIsNone(row)
+
+    def test_columns(self):
+        with SessionFactory.connect("sqlite://test.db") as session:
+            try:
+                session.execute("drop table test;")
+            except:
+                ...
+
+            session.commit()
+            session.execute("create table test(id integer not null primary key autoincrement, name text);")
+            session.commit()
+
+            cursor = session.fetch("select * from test")
+            desc = cursor.description
+            print(desc)

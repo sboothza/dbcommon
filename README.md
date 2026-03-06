@@ -14,17 +14,20 @@ Import from `sb_db_common`:
 ```python
 from sb_db_common import (
     SessionFactory, Session, PersistentSession,
-    ConnectionBase, MySqlConnection, PgSqlConnection, MsSqlConnection, SqliteConnection, OracleConnection, 
+    ConnectionBase, MySqlConnection, PgSqlConnection, MsSqlConnection, SqliteConnection,
+    OracleConnection, CockroachConnection,
     ManagedCursor, ConfigBase, RepositoryBase, TableBase,
     DataException, DatatypeException,
 )
+from sb_db_common.entity import entity
+from sb_db_common.mapped_field import Mapped
 ```
 
 ### Connections
 
-**`ConnectionBase`** — Abstract base for all database connections. Holds `connection_string`, `database`, and `connection`. Subclasses implement `start()`, `commit()`, `rollback()`, `execute()`, `execute_lastrowid()`, `fetch()`, and `close()`. Use as a base when adding a new provider.
+**`ConnectionBase`** — Abstract base for all database connections. Holds `connection_string`, `database`, and `connection`. Subclasses implement `start()`, `commit()`, `rollback()`, `execute()`, `execute_lastrowid()`, `fetch()`, `close()`, and `map_sql_value()` (for mapping DB values to Python types). Use as a base when adding a new provider.
 
-**`MySqlConnection`**, **`PgSqlConnection`**, **`MsSqlConnection`**, **`SqliteConnection`**, **`OracleConnection`** — Concrete connection classes for MySQL, PostgreSQL, SQL Server, and SQLite. Usually created via `SessionFactory.get_connection(connection_string)` rather than instantiated directly.
+**`MySqlConnection`**, **`PgSqlConnection`**, **`MsSqlConnection`**, **`SqliteConnection`**, **`OracleConnection`**, **`CockroachConnection`** — Concrete connection classes for MySQL, PostgreSQL, SQL Server, SQLite, Oracle, and CockroachDB. Usually created via `SessionFactory.get_connection(connection_string)` rather than instantiated directly.
 
 ```python
 from sb_db_common import SessionFactory
@@ -90,39 +93,68 @@ class MyConfig(ConfigBase):
         super().__init__(connection_string)
 ```
 
-**`RepositoryBase`** — Base for repository-style access. Subclass and set `__table__` to a `TableBase` subclass. Provides `create_schema()`, `drop_schema()`, `schema_exists()`, `_get_by_id()`, `_item_exists()`, `fetch_one()`, `fetch()`, `count()`, `add()`, `update()`, `_delete()` using the table’s scripts and `map_row()`.
+### Entity decorator and Mapped
+
+**`@entity(table_name="...")`** — Decorator that turns a `TableBase` subclass into a full entity class. It inspects the class’s `Mapped`-declared fields and **generates** at class-definition time:
+
+- **`__table_name__`** — Set from the decorator argument.
+- **`__init__(self, ...)`** — Constructor with one argument per non–auto-increment, non-ignored field.
+- **`__str__(self)`** — String of all non-ignored field values.
+- **`map_row(self, row, connection)`** — Maps a result row to instance attributes using `connection.map_sql_value()` for type coercion (e.g. DB datetime → Python `datetime`).
+- **`get_insert_params(self)`** — Dict of field name → value for insert (excludes auto-increment).
+- **`get_update_params(self)`** — Dict of all field names → values for update.
+- **`get_id_params(self)`** — Dict of primary-key field(s) → value(s).
+
+Use `@entity(table_name="...")` on a class that subclasses `TableBase` and declares columns with **`Mapped.mapped_column(...)`**. The first time the class is built, `get_fields()` runs and the cache is populated; `generate_queries(connection)` (via repository `prepare(session)`) then fills the SQL script attributes on the class.
+
+**`Mapped`** — Descriptor for entity columns. Use **`Mapped.mapped_column(name, field_name, field_type, order, size=50, precision=2, primary_key=False, autoincrement=False, unique=False, optional=False, default="", ignore=False)`** to declare a column. `order` is the 0-based index of the column in result rows and in generated `map_row`. `ignore=True` excludes the field from generated `__init__`, `__str__`, and param builders.
 
 ```python
-from sb_db_common import RepositoryBase, TableBase, Session
+import datetime
+from sb_db_common import TableBase
+from sb_db_common.entity import entity
+from sb_db_common.mapped_field import Mapped
 
-class MyTable(TableBase):
-    __table_name__ = "mytable"
-    __create_script__ = "CREATE TABLE mytable(id INT PRIMARY KEY, name TEXT);"
-    # ... __insert_script__, __update_script__, __fetch_by_id_script__, etc.
-    def map_row(self, row): ...
-    def get_insert_params(self): ...
-    def get_update_params(self): ...
-    def get_id_params(self): ...
-
-class MyRepo(RepositoryBase):
-    __table__ = MyTable
-
-repo = MyRepo()
-with SessionFactory.connect("sqlite:///test.db") as session:
-    repo.create_schema(session)
-    n = repo.count(session)
+@entity(table_name="product")
+class Product(TableBase):
+    id = Mapped.mapped_column("id", "id", int, 0, primary_key=True, autoincrement=True)
+    name = Mapped.mapped_column("name", "name", str, 1, 50)
+    price = Mapped.mapped_column("price", "price", float, 2, precision=2)
+    created = Mapped.mapped_column("created", "created", datetime.datetime, 3)
 ```
 
-**`TableBase`** — Base for table entities. Subclass and set class attributes for DDL/DML scripts (`__create_script__`, `__insert_script__`, `__update_script__`, `__fetch_by_id_script__`, etc.) and implement `map_row()`, `get_insert_params()`, `get_update_params()`, `get_id_params()` so repositories can map rows to objects and build parameters.
+### RepositoryBase and TableBase (with generated scripts)
+
+**`RepositoryBase`** — Base for repository-style access. Subclass and set `__table__` to an entity class (a `TableBase` subclass built with `@entity`). Each repository method calls **`prepare(session)`** first; if the table’s scripts are still empty, **`generate_queries(session.connection)`** runs and fills `__insert_script__`, `__update_script__`, `__fetch_by_id_script__`, etc. on the table class. The repository then uses those scripts and the entity’s generated `map_row`, `get_insert_params`, and `get_update_params`.
+
+Provided methods: **`create_schema(session)`**, **`drop_schema(session)`**, **`schema_exists(session)`**, **`_get_by_id(session, id)`**, **`_item_exists(session, id)`**, **`fetch_one(session, query, params)`**, **`fetch(session, query, params)`**, **`count(session)`**, **`add(session, item)`**, **`update(session, item)`**, **`_delete(session, id)`**.
+
+**`TableBase`** — Base for table entities. Defines **`get_fields()`** (cached list of `Mapped` columns, with **`_autoincrement_field`** set for `add()`) and **`generate_queries(connection)`**, which fills the script attributes (`__create_script__`, `__insert_script__`, `__update_script__`, etc.) using the connection’s `generate_*_query(table)` methods. Entity classes use the **`@entity`** decorator to get generated **`map_row`**, **`get_insert_params`**, **`get_update_params`**, and **`get_id_params`**; you do not implement these by hand when using `@entity`.
 
 ```python
+from sb_db_common import RepositoryBase, SessionFactory
+from sb_db_common.entity import entity
+from sb_db_common.mapped_field import Mapped
+
+# Entity (see example above)
+@entity(table_name="product")
 class Product(TableBase):
-    __table_name__ = "product"
-    __fetch_by_id_script__ = "SELECT id, name FROM product WHERE id = :id"
-    def map_row(self, row): ...
-    def get_insert_params(self): ...
-    def get_update_params(self): ...
-    def get_id_params(self): ...
+    id = Mapped.mapped_column("id", "id", int, 0, primary_key=True, autoincrement=True)
+    name = Mapped.mapped_column("name", "name", str, 1, 50)
+    # ...
+
+class ProductRepo(RepositoryBase):
+    __table__ = Product
+
+repo = ProductRepo()
+with SessionFactory.connect("sqlite:///app.db") as session:
+    repo.prepare(session)  # or let add/fetch/etc. call it
+    repo.create_schema(session)
+    p = Product(name="widget", price=9.99)
+    repo.add(session, p)   # p.id set if auto-increment
+    one = repo._get_by_id(session, {"id": 1})
+    items = repo.fetch(session, "SELECT * FROM product WHERE name = :name", {"name": "widget"})
+    repo.update(session, p)
 ```
 
 ### Exceptions
@@ -143,7 +175,7 @@ except DataException as e:
 ## Usage
 Connection string format is: `<provider>://<username>:<password>@<host>/<database>`  
 The supported providers are:
-`sqlite, mysql, mssql, pgsql, oracle`
+`sqlite, mysql, mssql, pgsql, oracle, cockroach`
 
 The providers self-register. Call `SessionFactory.register()` before use.
 
@@ -189,7 +221,7 @@ CREATE TABLE test(
 #### oracle
 ```
 CREATE TABLE test(
-    id id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
+    id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
     name VARCHAR(50) NULL
  );
  ```

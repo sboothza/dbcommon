@@ -1,25 +1,47 @@
+import datetime
+import decimal
 import re
+from typing import Any
 
 import pymssql
 
 from .connection_base import ConnectionBase
 from .managed_cursor import ManagedCursor
+from .mapped_field import Mapped
+
 
 class MsSqlConnection(ConnectionBase):
+    field_type_maps = {
+        int: "INT",
+        float: "FLOAT",
+        str: "VARCHAR({0})",
+        datetime.datetime: "DATETIME",
+        bool: "INT",
+        decimal.Decimal: "DECIMAL({0},{1})"
+    }
+
+    property_type_maps = {
+        bool: lambda x: x == 1
+    }
+
     def __init__(self, connection_string: str = ""):
         # mssql://user:pass@localhost/db?trusted_connection=true&trust_cert=true
         self.provider_name = "mssql"
         if connection_string == "":
             return
         super().__init__(connection_string)
-        match = re.match(r"mssql://([^:]+)?:?([^@]+)?@([^/]+)/([^?]+)(\?(.+))?", self.connection_string)
+        match = re.match(r"mssql://([^:]+)?:?([^@]+)?@([^/:]+)(:(\d+))?/([^?]+)(\?(.+))?", self.connection_string)
         if match:
             self.user = match.group(1)
             self.password = match.group(2)
             self.hostname = match.group(3)
             self.database = match.group(4)
+            if match.group(5):
+                self.port = int(match.group(5))
+            else:
+                self.port = 1433
             self.options = {}
-            key_value_pairs = match.group(6)
+            key_value_pairs = match.group(8)
             if key_value_pairs:
                 key_value_pairs = key_value_pairs.split("&")
                 for pair in key_value_pairs:
@@ -41,33 +63,21 @@ class MsSqlConnection(ConnectionBase):
     # def _trust_cert(self):
     #     return self.options.get("trust_cert", "yes") == "yes"
 
-    def start(self):
-        self.cursor.execute("BEGIN TRANSACTION;", {})
+    def normalize_query(self, query: str) -> str:
+        new_query = re.sub(r":((\w)+)", "%($1)s", query)
+        new_query = re.sub(r"select exists\((\w+)\);",
+                           "SELECT count(*) FROM sys.tables WHERE name = '$1' AND type = 'U';", new_query, re.IGNORECASE)
+        return new_query
 
-    def commit(self):
-        self.cursor.execute("COMMIT;")
+    def type_to_sql_type(self, field: Mapped) -> str:
+        type_str:str = self.field_type_maps.get(field.field_type, "")
+        if "{" in type_str:
+            type_str= type_str.format(field.size, field.precision)
+        return type_str
 
-    def rollback(self):
-        self.cursor.execute("ROLLBACK;")
-
-    def execute(self, query: str, params: None):
-        if params is None:
-            params = {}
-        self.cursor.execute(query, params)
-
-    def execute_lastrowid(self, query: str, params: {}):
-        if params is None:
-            params = {}
-        cursor = self.connection.cursor()
-        cursor.execute(query, params)
-        return cursor.fetchone()[0]
-
-    def fetch(self, query: str, params=None) -> ManagedCursor:
-        if params is None:
-            params = {}
-        cursor = self.connection.cursor()
-        cursor.execute(query, params)
-        return ManagedCursor(cursor)
+    def map_sql_value(self, sql_value, property_type: type) -> Any:
+        map_func = self.property_type_maps.get(property_type, lambda x: x)
+        return map_func(sql_value)
 
     def close(self):
         self.connection.close()

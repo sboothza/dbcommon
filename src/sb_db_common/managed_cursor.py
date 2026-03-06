@@ -30,7 +30,8 @@ class ManagedCursor(object):
         return self.cursor.__iter__()
 
     def __next__(self):
-        return self.cursor.__next__()
+        next = self.cursor.__next__()
+        return next
 
     @property
     def connection(self):
@@ -38,7 +39,7 @@ class ManagedCursor(object):
 
     @property
     def description(self):
-        return self.cursor.description
+        return [c[0] for c in self.cursor.description]
 
     # @property
     # def lastrowid(self):

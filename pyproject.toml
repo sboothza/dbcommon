@@ -9,19 +9,19 @@ build-backend = "setuptools.build_meta"
 name = "sb_db_common"
 readme = "README.md"
 urls = { "homepage" = "https://github.com/sboothza/dbcommon" }
-version = "0.0.8"
+version = "0.0.12"
 authors = [
     { name = "Stephen Booth", email = "stephen.booth.za@gmail.com" },
 ]
 description = "A set of db wrappers"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 dependencies = ["psycopg2-binary >= 2.9.9",
-    "mysql-connector-python >= 8.1.0",
+    "mysql-connector-python >= 9.3.0",
     "pymssql >= 2.3.6",
+    "oracledb ~= 3.4.2",
     "protobuf >= 4.21.1"]
 

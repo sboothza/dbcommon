@@ -50,3 +50,6 @@ class SessionFactory(object):
                         if type not in SessionFactory.connections:
                             print(f"Registering connection type: {type}")
                             SessionFactory.connections[type] = obj
+
+
+SessionFactory.register()

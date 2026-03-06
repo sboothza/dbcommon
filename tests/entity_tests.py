@@ -2,7 +2,7 @@ import datetime
 import unittest
 
 from test_entity import TestEntity
-from sb_db_common import SessionFactory
+from src.sb_db_common import SessionFactory
 from test_repository import TestRepository
 
 

@@ -1,8 +1,8 @@
 import datetime
 
-from sb_db_common import TableBase
-from sb_db_common.entity import entity
-from sb_db_common.mapped_field import Mapped
+from src.sb_db_common import TableBase
+from src.sb_db_common.entity import entity
+from src.sb_db_common.mapped_field import Mapped
 
 
 @entity(table_name="testentity")

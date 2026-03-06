@@ -1,7 +1,7 @@
 import unittest
 from time import sleep
 
-from sb_db_common.queued_session import QueuedSession
+from src.sb_db_common import QueuedSession
 from src.sb_db_common import SessionFactory
 
 

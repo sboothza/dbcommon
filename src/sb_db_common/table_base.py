@@ -73,7 +73,7 @@ class TableBase:
 
     @classmethod
     def generate_queries(cls, connection: ConnectionBase):
-        cls.__table_exists_script__ = connection.generate_item_exists_query(cls)
+        cls.__table_exists_script__ = connection.generate_exists_query(cls)
         cls.__table_count_script__ = connection.generate_count_query(cls)
         cls.__create_script__ = connection.generate_create_query(cls)
         cls.__insert_script__ = connection.generate_insert_query(cls)

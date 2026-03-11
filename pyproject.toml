@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 name = "sb_db_common"
 readme = "README.md"
 urls = { "homepage" = "https://github.com/sboothza/dbcommon" }
-version = "0.1.3"
+version = "0.1.4"
 authors = [
     { name = "Stephen Booth", email = "stephen.booth.za@gmail.com" },
 ]

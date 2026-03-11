@@ -99,7 +99,7 @@ class ConnectionBase(object):
         return "AUTOINCREMENT" if field.auto_increment else ""
 
     def generate_exists_query(self, table: type["TableBase"]) -> str:
-        query = f"select exists({self.escape_name(table.__table_name__)});"
+        query = f"select exists({table.__table_name__});"
         return self.normalize_query(query)
 
     def generate_count_query(self, table: type["TableBase"]) -> str:
@@ -119,7 +119,7 @@ class ConnectionBase(object):
         all_queries = ""
         # do single field indexes first
         for field in [f for f in fields if f.indexed or f.unique]:
-            query = f"CREATE {'UNIQUE' if field.unique else ''} INDEX {self.escape_name(field.name)}_index ON {self.escape_name(table.__table_name__)} ({self.escape_name(field.field_name)});"
+            query = f"CREATE {'UNIQUE' if field.unique else ''} INDEX {self.escape_name(field.name + "_index")} ON {self.escape_name(table.__table_name__)} ({self.escape_name(field.field_name)});"
             all_queries += query + "\r\n"
 
         # do separate indexes

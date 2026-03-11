@@ -31,6 +31,7 @@ class RepositoryBase:
         script = list(filter(None, self.__table__.__create_script__.split(";")))
         for line in script:
             self._execute(session, line + ";")
+            session.commit()
 
     def _fetch_scalar(self, session: Session, query: str, parameters: Union[None, dict] = None):
         self.prepare(session)

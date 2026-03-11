@@ -56,10 +56,19 @@ class OracleConnection(ConnectionBase):
                                            service_name=self.database, port=self.port)
         self.cursor = self.connection.cursor()
 
+    def escape_name(self, name:str)->str:
+        return f"\"{name}\""
+
     def normalize_query(self, query: str) -> str:
-        new_query = re.sub(r"select exists\((\w+)\);", "SELECT count(*) FROM user_tables WHERE table_name = '$1';",
+        new_query = re.sub(r"select exists\((\w+)\);", "SELECT count(*) FROM user_tables WHERE table_name = '\\1';",
                            query, re.IGNORECASE)
         return new_query
+
+    def generate_insert_query(self, table: type["TableBase"]) -> str:
+        fields = [f for f in table.get_fields() if not f.auto_increment]
+        field_parameters = [self.generate_parameter(f) for f in fields]
+        query = f"INSERT INTO {table.__table_name__} ({", ".join([f.field_name for f in fields])}) VALUES ({", ".join(field_parameters)}) RETURNING {table._autoincrement_field.field_name};"
+        return query
 
     def type_to_sql_type(self, field: Mapped) -> str:
         type_str: str = self.field_type_maps.get(field.field_type, "")

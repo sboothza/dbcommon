@@ -74,8 +74,11 @@ class ConnectionBase(object):
     def close(self):
         ...
 
+    def escape_name(self, name:str)->str:
+        return name
+
     def generate_field_definition(self, field:Mapped)->str:
-        return f"{field.field_name} {self.type_to_sql_type(field)} {self.generate_nullable(field)} {self.generate_is_pk(field)} {self.generate_autoincrement(field)}"
+        return f"{self.escape_name(field.field_name)} {self.type_to_sql_type(field)} {self.generate_nullable(field)} {self.generate_is_pk(field)} {self.generate_autoincrement(field)}"
 
     def generate_parameter(self, field:Mapped)->str:
         return f":{field.field_name}"
@@ -96,23 +99,40 @@ class ConnectionBase(object):
         return "AUTOINCREMENT" if field.auto_increment else ""
 
     def generate_exists_query(self, table: type["TableBase"]) -> str:
-        query = f"select exists({table.__table_name__})"
+        query = f"select exists({self.escape_name(table.__table_name__)});"
         return self.normalize_query(query)
 
     def generate_count_query(self, table: type["TableBase"]) -> str:
-        query = f"select count(*) from {table.__table_name__}"
+        query = f"select count(*) from {self.escape_name(table.__table_name__)};"
         return self.normalize_query(query)
 
     def generate_create_query(self, table: type["TableBase"]) -> str:
         fields = table.get_fields()
         field_defs = [self.generate_field_definition(f) for f in fields]
-        query = f"CREATE TABLE {table.__table_name__} ({", ".join(field_defs)} );"
-        return query
+        query = f"CREATE TABLE {self.escape_name(table.__table_name__)} ({", ".join(field_defs)} );\r\n"
+        query += self.generate_create_indexes(table)
+        return self.normalize_query(query)
+
+    def generate_create_indexes(self, table: type["TableBase"]) -> str:
+        fields = table.get_fields()
+        indexes = table.get_indexes()
+        all_queries = ""
+        # do single field indexes first
+        for field in [f for f in fields if f.indexed or f.unique]:
+            query = f"CREATE {'UNIQUE' if field.unique else ''} INDEX {self.escape_name(field.name)}_index ON {self.escape_name(table.__table_name__)} ({self.escape_name(field.field_name)});"
+            all_queries += query + "\r\n"
+
+        # do separate indexes
+        for index in indexes:
+            query = f"CREATE {'UNIQUE' if index.unique else ''} INDEX {self.escape_name(index.name)} ON {self.escape_name(table.__table_name__)} ({', '.join([self.escape_name(f) for f in index.fields])});"
+            all_queries += query + "\r\n"
+
+        return all_queries
 
     def generate_insert_query(self, table: type["TableBase"]) -> str:
         fields = [f for f in table.get_fields() if not f.auto_increment]
         field_parameters = [self.generate_parameter(f) for f in fields]
-        query = f"INSERT INTO {table.__table_name__} ({", ".join([f.field_name for f in fields])}) VALUES ({", ".join(field_parameters)}); "
+        query = f"INSERT INTO {table.__table_name__} ({", ".join([f.field_name for f in fields])}) VALUES ({", ".join(field_parameters)});"
         return query
 
     def generate_update_query(self, table: type["TableBase"]) -> str:

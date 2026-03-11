@@ -8,7 +8,13 @@ from test_repository import TestRepository
 
 class EntityTests(unittest.TestCase):
     def test_sqlite(self):
-        with SessionFactory.connect("sqlite://:memory:") as session:
+        self._test_basic("sqlite://:memory:")
+
+    def test_pgsql(self):
+        self._test_basic("pgsql://postgres:postgres@localhost/postgres")
+
+    def _test_basic(self, connection_string):
+        with SessionFactory.connect(connection_string) as session:
             repo = TestRepository()
             repo.prepare(session)
 

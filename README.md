@@ -4,7 +4,7 @@ Thats what this is for.
 More consistent (Think ADO.NET) db connectivity  
 
 ## Overview
-Links pgsql, mysql, mssql, oracle and sqlite in a common interface  
+Links pgsql, mysql, mssql, oracle, sqlite and cockroachdb in a common interface  
 Unit tests provided to show usage  
 
 ## Exposed API

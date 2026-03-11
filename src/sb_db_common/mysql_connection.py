@@ -47,10 +47,13 @@ class MySqlConnection(ConnectionBase):
                                                   database=self.database, port=self.port)
         self.cursor = self.connection.cursor()
 
+    def escape_name(self, name:str)->str:
+        return f"`{name}`"
+
     def normalize_query(self, query: str) -> str:
-        new_query = re.sub(r":((\w)+)", "%($1)s", query)
+        new_query = re.sub(r":((\w)+)", "%(\\1)s", query)
         new_query = re.sub(r"select exists\((\w+)\);",
-                           "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = {0} AND TABLE_NAME = '$1';", new_query,
+                           "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = {1} AND TABLE_NAME = '\\1';", new_query,
                            re.IGNORECASE)
         return new_query
 

@@ -15,8 +15,8 @@ class PgSqlConnection(ConnectionBase):
         int: "INT",
         float: "FLOAT",
         str: "VARCHAR({0})",
-        datetime.datetime: "DATETIME",
-        bool: "INT",
+        datetime.datetime: "TIMESTAMP",
+        bool: "BOOLEAN",
         decimal.Decimal: "DECIMAL({0},{1})"
     }
 
@@ -48,11 +48,15 @@ class PgSqlConnection(ConnectionBase):
                                            database=self.database, port=self.port)
         self.cursor = self.connection.cursor()
 
+    def escape_name(self, name:str)->str:
+        return f"\"{name}\""
+
     def normalize_query(self, query: str) -> str:
-        new_query = re.sub(r":((\w)+)", "%($1)s", query)
+        new_query = re.sub(r":((\w)+)", "%(\\1)s", query)
         new_query = re.sub(r"select exists\((\w+)\);",
-                           "SELECT count(*) FROM information_schema.tables WHERE table_schema = '{0}' AND table_name = '$1';",
+                           "SELECT count(*) FROM information_schema.tables WHERE table_schema = '{database}' AND table_name = '\\1';",
                            new_query, re.IGNORECASE)
+        new_query = re.sub("AUTOINCREMENT", "GENERATED ALWAYS AS IDENTITY", new_query)
         return new_query
 
     def type_to_sql_type(self, field: Mapped) -> str:
@@ -64,6 +68,12 @@ class PgSqlConnection(ConnectionBase):
     def map_sql_value(self, sql_value, property_type: type) -> Any:
         map_func = self.property_type_maps.get(property_type, lambda x: x)
         return map_func(sql_value)
+
+    def generate_insert_query(self, table: type["TableBase"]) -> str:
+        fields = [f for f in table.get_fields() if not f.auto_increment]
+        field_parameters = [self.generate_parameter(f) for f in fields]
+        query = f"INSERT INTO {table.__table_name__} ({", ".join([f.field_name for f in fields])}) VALUES ({", ".join(field_parameters)}) RETURNING {table._autoincrement_field.field_name};"
+        return query
 
     def close(self):
         self.connection.close()

@@ -63,10 +63,13 @@ class MsSqlConnection(ConnectionBase):
     # def _trust_cert(self):
     #     return self.options.get("trust_cert", "yes") == "yes"
 
+    def escape_name(self, name:str)->str:
+        return f"[{name}]"
+
     def normalize_query(self, query: str) -> str:
-        new_query = re.sub(r":((\w)+)", "%($1)s", query)
+        new_query = re.sub(r":((\w)+)", "%(\\1)s", query)
         new_query = re.sub(r"select exists\((\w+)\);",
-                           "SELECT count(*) FROM sys.tables WHERE name = '$1' AND type = 'U';", new_query, re.IGNORECASE)
+                           "SELECT count(*) FROM sys.tables WHERE name = '\\1' AND type = 'U';", new_query, re.IGNORECASE)
         return new_query
 
     def type_to_sql_type(self, field: Mapped) -> str:

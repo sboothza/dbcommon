@@ -3,9 +3,8 @@ from __future__ import annotations
 import inspect
 
 from sb_db_common import ConnectionBase
-from sb_db_common.mapped_field import Mapped
+from sb_db_common.mapped_field import Mapped, Index
 import datetime
-
 
 
 class TableBase:
@@ -25,6 +24,9 @@ class TableBase:
 
     _autoincrement_field: Mapped = None
 
+    _mapped_indexes: dict[str, Index] = {}
+    _mapped_index_list: list[Index] = []
+
     @classmethod
     def get_fields(cls) -> list[Mapped]:
         if len(cls._mapped_fields) == 0:
@@ -41,6 +43,20 @@ class TableBase:
             cls._mapped_field_list.sort(key=lambda f: f.order)
 
         return cls._mapped_field_list
+
+    @classmethod
+    def get_indexes(cls) -> list[Index]:
+        if len(cls._mapped_indexes) == 0:
+            entity_class_indexes = {}
+            for kls in cls.__mro__:
+                for name, attr in inspect.getmembers(kls):
+                    if "Index" in type(attr).__name__ and name not in entity_class_indexes:
+                        entity_class_indexes[name] = attr
+
+            cls._mapped_indexes = entity_class_indexes
+            cls._mapped_index_list = list(entity_class_indexes.values())
+
+        return cls._mapped_index_list
 
     def map_row(self, row, connection: ConnectionBase) -> TableBase:
         ...

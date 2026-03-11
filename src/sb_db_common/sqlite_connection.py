@@ -36,11 +36,15 @@ class SqliteConnection(ConnectionBase):
         self.connection.isolation_level = None
         self.database = get_filename(connection_string)
         self.cursor = self.connection.cursor()
+        self.cursor.execute("PRAGMA journal_mode=WAL;")
+
+    def escape_name(self, name:str)->str:
+        return f"\"{name}\""
 
     def normalize_query(self, query: str) -> str:
         # "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='table_name';"
         new_query = re.sub(r"select exists\((\w+)\);",
-                           "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='$1';", query, re.IGNORECASE)
+                           "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='\\1';", query, re.IGNORECASE)
         return new_query
 
     def type_to_sql_type(self, field: Mapped) -> str:

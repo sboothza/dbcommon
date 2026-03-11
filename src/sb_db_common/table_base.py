@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import inspect
 
-from sb_db_common import ConnectionBase
-from sb_db_common.mapped_field import Mapped, Index
+from .connection_base import ConnectionBase
+from .mapped_field import Mapped, Index
 import datetime
+
 
 
 class TableBase:

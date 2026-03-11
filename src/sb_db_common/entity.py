@@ -1,6 +1,7 @@
 import inspect
 import datetime
-from sb_db_common import TableBase
+
+from .table_base import TableBase
 
 
 def entity(klass=None, table_name=None):

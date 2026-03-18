@@ -10,6 +10,9 @@ import datetime
 
 class TableBase:
     __table_name__ = ""
+    __table_description__ = ""
+    __table_created_at__ = ""
+    __table_updated_at__ = ""
     __table_exists_script__ = ""
     __table_count_script__ = ""
     __create_script__ = ""

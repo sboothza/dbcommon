@@ -38,14 +38,30 @@ class SqliteConnection(ConnectionBase):
         self.cursor = self.connection.cursor()
         self.cursor.execute("PRAGMA journal_mode=WAL;")
 
-    def escape_name(self, name:str)->str:
+    def escape_name(self, name: str) -> str:
         return f"\"{name}\""
+
+    def generate_field_definition(self, field: Mapped) -> str:
+        return f"{self.escape_name(field.field_name)} {self.type_to_sql_type(field)} {self.generate_nullable(field)} {self.generate_is_pk(field)} {self.generate_autoincrement(field)} -- {field.description}"
 
     def normalize_query(self, query: str) -> str:
         # "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='table_name';"
         new_query = re.sub(r"select exists\((\w+)\);",
-                           "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='\\1';", query, re.IGNORECASE)
+                           "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='\\1';", query,
+                           re.IGNORECASE)
         return new_query
+
+    def generate_create_query(self, table: type["TableBase"]) -> str:
+        fields = table.get_fields()
+        field_defs = [self.generate_field_definition(f) for f in fields]
+        table_comment = ""
+        if table.__table_description__:
+            table_comment += f" -- {table.__table_description__}"
+        query = f"CREATE TABLE {self.escape_name(table.__table_name__)} {table_comment} \r\n"
+        query += f"({',\r\n '.join(field_defs)}));\r\n"
+        query += self.generate_create_indexes(table)
+        query += self.generate_additional_create(table)
+        return self.normalize_query(query)
 
     def type_to_sql_type(self, field: Mapped) -> str:
         type_str = self.field_type_maps.get(field.field_type, "TEXT")

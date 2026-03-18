@@ -47,20 +47,56 @@ class MySqlConnection(ConnectionBase):
                                                   database=self.database, port=self.port)
         self.cursor = self.connection.cursor()
 
-    def escape_name(self, name:str)->str:
+    def escape_name(self, name: str) -> str:
         return f"`{name}`"
 
     def normalize_query(self, query: str) -> str:
         new_query = re.sub(r":((\w)+)", "%(\\1)s", query)
         new_query = re.sub(r"select exists\((\w+)\);",
-                           "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = {1} AND TABLE_NAME = '\\1';", new_query,
+                           "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = {1} AND TABLE_NAME = '\\1';",
+                           new_query,
                            re.IGNORECASE)
         return new_query
 
+    def generate_field_definition(self, field: Mapped) -> str:
+        comment = ""
+        if field.description != "":
+            comment = f"COMMENT '{field.description}'"
+        return f"{self.escape_name(field.field_name)} {self.type_to_sql_type(field)} {self.generate_nullable(field)} {self.generate_is_pk(field)} {self.generate_autoincrement(field)} {comment}"
+
+    def generate_create_indexes(self, table: type["TableBase"]) -> str:
+        fields = table.get_fields()
+        indexes = table.get_indexes()
+        all_queries = ""
+        # do single field indexes first
+        for field in [f for f in fields if f.indexed or f.unique]:
+            comment = ""
+            if field.description != "":
+                comment = f"COMMENT '{field.description}'"
+            query = f"CREATE {'UNIQUE' if field.unique else ''} INDEX {self.escape_name(field.name + "_index")} ON {self.escape_name(table.__table_name__)} ({self.escape_name(field.field_name)} {comment});"
+            all_queries += query + "\r\n"
+
+        # do separate indexes
+        for index in indexes:
+            comment = ""
+            if index.description != "":
+                comment = f"COMMENT '{index.description}'"
+            query = f"CREATE {'UNIQUE' if index.unique else ''} INDEX {self.escape_name(index.name)} ON {self.escape_name(table.__table_name__)} ({', '.join([self.escape_name(f) for f in index.fields])}) {comment};"
+            all_queries += query + "\r\n"
+
+        return all_queries
+
+    def generate_additional_create(self, table: type["TableBase"]) -> str:
+        query = ""
+        if table.__table_description__:
+            query = f"ALTER TABLE {self.escape_name(table.__table_name__)} COMMENT = '{table.__table_description__}'; \r\n "
+        return query
+
+
     def type_to_sql_type(self, field: Mapped) -> str:
-        type_str:str = self.field_type_maps.get(field.field_type, "")
+        type_str: str = self.field_type_maps.get(field.field_type, "")
         if "{" in type_str:
-            type_str= type_str.format(field.size, field.precision)
+            type_str = type_str.format(field.size, field.precision)
         return type_str
 
     def map_sql_value(self, sql_value, property_type: type) -> Any:

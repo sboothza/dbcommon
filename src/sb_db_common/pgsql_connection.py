@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 import psycopg2
+from docutils.nodes import field_name
 
 from .connection_base import ConnectionBase
 from .managed_cursor import ManagedCursor
@@ -58,6 +59,17 @@ class PgSqlConnection(ConnectionBase):
                            new_query, re.IGNORECASE)
         new_query = re.sub("AUTOINCREMENT", "GENERATED ALWAYS AS IDENTITY", new_query)
         return new_query
+
+    def generate_additional_create(self, table: type["TableBase"]) -> str:
+        table_comment = ""
+        if table.__table_description__:
+            table_comment += f"COMMENT ON TABLE {table.__table_name__} IS {table.__table_description__} \r\n"
+        field_comments = [f"COMMENT ON COLUMN {table.__table_name__}.{f.field_name} IS '{f.description}';" for f in table.get_fields() if f.description != ""]
+        index_comments = [f"COMMENT ON INDEX {i.name} IS '{i.description}';" for i in table.indexes if i.description != ""]
+        query = table_comment
+        query += ", \r\n".join(field_comments)
+        query += ", \r\n".join(index_comments)
+        return query
 
     def type_to_sql_type(self, field: Mapped) -> str:
         type_str: str = self.field_type_maps.get(field.field_type, "")

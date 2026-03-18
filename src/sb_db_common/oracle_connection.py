@@ -64,6 +64,15 @@ class OracleConnection(ConnectionBase):
                            query, re.IGNORECASE)
         return new_query
 
+    def generate_additional_create(self, table: type["TableBase"]) -> str:
+        table_comment = ""
+        if table.__table_description__:
+            table_comment = f"COMMENT ON TABLE {self.escape_name(table.__table_name__)} IS '{table.__table_description__}'; \r\n "
+        column_comments = [f"COMMENT ON COLUMN {table.__table_name__}.{f.field_name} IS '{f.description}';" for f in table.get_fields() if f.description != ""]
+        query = table_comment
+        query += ", \r\n".join(column_comments)
+        return query
+
     def generate_insert_query(self, table: type["TableBase"]) -> str:
         fields = [f for f in table.get_fields() if not f.auto_increment]
         field_parameters = [self.generate_parameter(f) for f in fields]

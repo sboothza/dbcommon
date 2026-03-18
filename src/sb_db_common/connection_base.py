@@ -74,28 +74,28 @@ class ConnectionBase(object):
     def close(self):
         ...
 
-    def escape_name(self, name:str)->str:
+    def escape_name(self, name: str) -> str:
         return name
 
-    def generate_field_definition(self, field:Mapped)->str:
+    def generate_field_definition(self, field: Mapped) -> str:
         return f"{self.escape_name(field.field_name)} {self.type_to_sql_type(field)} {self.generate_nullable(field)} {self.generate_is_pk(field)} {self.generate_autoincrement(field)}"
 
-    def generate_parameter(self, field:Mapped)->str:
+    def generate_parameter(self, field: Mapped) -> str:
         return f":{field.field_name}"
 
-    def type_to_sql_type(self, field:Mapped) -> str:
+    def type_to_sql_type(self, field: Mapped) -> str:
         ...
 
     def map_sql_value(self, sql_value, property_type: type) -> Any:
         return sql_value
 
-    def generate_nullable(self, field: Mapped)->str:
+    def generate_nullable(self, field: Mapped) -> str:
         return "NULL" if field.optional else "NOT NULL"
 
-    def generate_is_pk(self, field: Mapped)->str:
+    def generate_is_pk(self, field: Mapped) -> str:
         return "PRIMARY KEY" if field.primary_key else ""
 
-    def generate_autoincrement(self, field: Mapped)->str:
+    def generate_autoincrement(self, field: Mapped) -> str:
         return "AUTOINCREMENT" if field.auto_increment else ""
 
     def generate_exists_query(self, table: type["TableBase"]) -> str:
@@ -106,11 +106,16 @@ class ConnectionBase(object):
         query = f"select count(*) from {self.escape_name(table.__table_name__)};"
         return self.normalize_query(query)
 
+    def generate_additional_create(self, table: type["TableBase"]) -> str:
+        return "\r\n"
+
     def generate_create_query(self, table: type["TableBase"]) -> str:
         fields = table.get_fields()
         field_defs = [self.generate_field_definition(f) for f in fields]
-        query = f"CREATE TABLE {self.escape_name(table.__table_name__)} ({", ".join(field_defs)} );\r\n"
+        query = f"CREATE TABLE {self.escape_name(table.__table_name__)} \r\n"
+        query += f"({',\r\n '.join(field_defs)}));\r\n"
         query += self.generate_create_indexes(table)
+        query += self.generate_additional_create(table)
         return self.normalize_query(query)
 
     def generate_create_indexes(self, table: type["TableBase"]) -> str:
@@ -170,4 +175,3 @@ class ConnectionBase(object):
         query = f"SELECT COUNT(*) FROM {table.__table_name__} WHERE {', '.join(pk_keys)};"
         new_query = self.normalize_query(query)
         return new_query
-

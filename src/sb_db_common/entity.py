@@ -4,7 +4,7 @@ import datetime
 from .table_base import TableBase
 
 
-def entity(klass=None, table_name=None):
+def entity(klass=None, table_name=None, description=None):
     def wrap(klass):
 
         def escape_string(text: str) -> str:
@@ -19,6 +19,8 @@ def entity(klass=None, table_name=None):
                 fields = klass.get_fields()
 
                 txt = f"setattr(klass, '__table_name__', '{table_name}')\r\n"
+                if description:
+                    txt += f"setattr(klass, '__table_description__', '{description}')\r\n"
                 exec(txt)
 
                 # define_init(non_auto_fields)

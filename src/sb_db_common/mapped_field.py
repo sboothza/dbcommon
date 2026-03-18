@@ -15,14 +15,16 @@ class Mapped:
     default: str
     ignore: bool
     indexed: bool
+    description: str
 
     def __str__(self):
-        return self.name
+        return f"{self.field_name} - {self.description}"
 
     @staticmethod
     def mapped_column(name: str = None, field_name: str = None, field_type: type = int, order: int = 0, size: int = 50,
                       precision: int = 2, primary_key: bool = False, autoincrement: bool = False, unique: bool = False,
-                      optional: bool = False, default: str = "", ignore: bool = False, indexed: bool = False) -> Mapped:
+                      optional: bool = False, default: str = "", ignore: bool = False, indexed: bool = False,
+                      description: str = "") -> Mapped:
         mapped = Mapped()
         mapped.name = name
         mapped.field_name = field_name
@@ -37,6 +39,7 @@ class Mapped:
         mapped.default = default
         mapped.ignore = ignore
         mapped.indexed = indexed
+        mapped.description = description
 
         return mapped
 
@@ -45,15 +48,18 @@ class Index:
     name: str
     fields: list[str]
     unique: bool
+    description: str
 
     def __str__(self):
         return self.name
 
     @staticmethod
-    def map_index(name:str=None, fields:list[str]=None, autoincrement:bool=False, unique:bool=False)->Index:
+    def map_index(name: str = None, fields: list[str] = None, autoincrement: bool = False, unique: bool = False,
+                  description: str = "") -> Index:
         mapped = Index()
         mapped.name = name
         mapped.fields = fields
         mapped.auto_increment = autoincrement
         mapped.unique = unique
+        mapped.description = description
         return mapped

@@ -2,13 +2,11 @@ import inspect
 import datetime
 
 from .table_base import TableBase
+from .entity_proxy import make_typed_entity_proxy
 
 
 def entity(klass=None, table_name=None, description=None):
     def wrap(klass):
-
-        def escape_string(text: str) -> str:
-            return text.replace("\"", "\\\"")
 
         def build_new_methods():
             if "__entity_built__" not in dir(klass):
@@ -24,38 +22,78 @@ def entity(klass=None, table_name=None, description=None):
                 exec(txt)
 
                 # define_init(non_auto_fields)
-                # if "__init__" not in dir(klass):
-                field_list = [f"{f.name}=None" for f in fields if not f.auto_increment and not f.ignore]
+                field_list = [
+                    f"{f.name}=None"
+                    for f in fields
+                    if not f.auto_increment and not f.ignore and not f.is_lookup
+                ]
                 txt = f"def __init__(self, {', '.join(field_list)}):\r\n"
-                for field in [f for f in fields if not f.auto_increment and not f.ignore]:
+                for field in [f for f in fields if not f.auto_increment and not f.ignore and not f.is_lookup]:
                     txt += f"\tself.{field.name} = {field.name}\r\n"
 
                 txt += "setattr(klass, '__init__', __init__)"
                 exec(txt)
 
                 # define __str__
-                # if "__str__" not in dir(klass):
                 txt = f"def __str__(self):\r\n"
-                field_list = [f"{{self.{f.name}}}" for f in fields if not f.ignore]
+                field_list = [f"{{self.{f.name}}}" for f in fields if not f.ignore and not f.is_lookup]
                 txt += f"\treturn f'{' '.join(field_list)}'\r\n"
                 txt += "setattr(klass, '__str__', __str__)"
                 exec(txt)
 
-                # define_map_row(klass, fields)
-                txt = "def map_row(self, row, connection) -> TableBase:\r\n"
-                for i, field in enumerate([f for f in fields]):
-                    if not field.ignore:
-                        txt += f"\tsetattr(self, '{field.name}', connection.map_sql_value(row[{i}], {field.field_type.__name__}))\r\n"
+                # define_map_row(klass, fields) — row indices match SELECT of physical columns only (see connection_base)
+                row_index: dict[str, int] = {}
+                ri = 0
+                for f in fields:
+                    if f.ignore or f.is_lookup:
+                        continue
+                    row_index[f.name] = ri
+                    ri += 1
+
+                txt = "def map_row(self, context, row, connection) -> TableBase:\r\n"
+                for field in fields:
+                    if field.ignore:
+                        continue
+                    if field.is_lookup:
+                        fk_field = next(
+                            (
+                                f
+                                for f in fields
+                                if not f.ignore and not f.is_lookup and f.field_name == field.field_name
+                            ),
+                            None,
+                        )
+                        if fk_field is None:
+                            raise TypeError(
+                                f"Lookup field {field.name!r} must pair with a non-lookup column "
+                                f"having the same field_name (database column)."
+                            )
+                        ri_fk = row_index[fk_field.name]
+                        fk_py = fk_field.field_type.__name__
+                        rel = field.field_type.__name__
+                        txt += f"\t_fk_{field.name} = connection.map_sql_value(row[{ri_fk}], {fk_py})\r\n"
+                        txt += f"\tif _fk_{field.name} is None:\r\n"
+                        txt += f"\t\tsetattr(self, '{field.name}', None)\r\n"
+                        txt += f"\telse:\r\n"
+                        txt += f"\t\t_proxy_cls_{field.name} = make_typed_entity_proxy({rel})\r\n"
+                        txt += f"\t\tsetattr(self, '{field.name}', _proxy_cls_{field.name}(_fk_{field.name}, context, connection.connection_string))\r\n"
+                    else:
+                        ri = row_index[field.name]
+                        txt += f"\tsetattr(self, '{field.name}', connection.map_sql_value(row[{ri}], {field.field_type.__name__}))\r\n"
 
                 txt += f"\treturn self\r\n"
                 txt += f"setattr(klass, 'map_row', map_row)"
-                exec(txt)
+                exec_ns = {**globals(), "klass": klass}
+                for f in fields:
+                    if f.is_lookup:
+                        exec_ns[f.field_type.__name__] = f.field_type
+                exec(txt, exec_ns)
 
                 # get_insert_params(self)
                 txt = "def get_insert_params(self) -> dict:\r\n"
                 txt += "\treturn {"
                 for i, field in enumerate([f for f in fields if not f.auto_increment]):
-                    if not field.ignore:
+                    if not field.ignore and not field.is_lookup:
                         txt += f"\t\t\"{field.name}\": self.{field.name},\r\n"
 
                 txt += "\t}\r\n"
@@ -66,7 +104,7 @@ def entity(klass=None, table_name=None, description=None):
                 txt = "def get_update_params(self) -> dict:\r\n"
                 txt += "\treturn {"
                 for i, field in enumerate([f for f in fields]):
-                    if not field.ignore:
+                    if not field.ignore and not field.is_lookup:
                         txt += f"\t\t\"{field.name}\": self.{field.name},\r\n"
 
                 txt += "\t}\r\n"
@@ -74,15 +112,15 @@ def entity(klass=None, table_name=None, description=None):
                 exec(txt)
 
                 # get_id_params(self)
-                txt = "def get_id_params(self) -> dict:\r\n"
-                txt += "\treturn {"
-                for i, field in enumerate([f for f in fields if f.primary_key]):
-                    if not field.ignore:
-                        txt += f"\t\t\"{field.name}\": self.{field.name},\r\n"
-
-                txt += "\t}\r\n"
-                txt += f"setattr(klass, 'get_id_params', get_id_params)"
-                exec(txt)
+                # txt = "def get_id_params(self) -> dict:\r\n"
+                # txt += "\treturn {"
+                # for i, field in enumerate([f for f in fields if f.primary_key]):
+                #     if not field.ignore:
+                #         txt += f"\t\t\"{field.name}\": self.{field.name},\r\n"
+                #
+                # txt += "\t}\r\n"
+                # txt += f"setattr(klass, 'get_id_params', get_id_params)"
+                # exec(txt)
 
                 setattr(klass, "__entity_built__", True)
 

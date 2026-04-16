@@ -110,7 +110,7 @@ class ConnectionBase(object):
         return "\r\n"
 
     def generate_create_query(self, table: type["TableBase"]) -> str:
-        fields = table.get_fields()
+        fields = [f for f in table.get_fields() if not f.is_lookup]
         field_defs = [self.generate_field_definition(f) for f in fields]
         query = f"CREATE TABLE {self.escape_name(table.__table_name__)} \r\n"
         query += f"({',\r\n '.join(field_defs)}));\r\n"
@@ -123,7 +123,7 @@ class ConnectionBase(object):
         indexes = table.get_indexes()
         all_queries = ""
         # do single field indexes first
-        for field in [f for f in fields if f.indexed or f.unique]:
+        for field in [f for f in fields if (f.indexed or f.unique) and not f.is_lookup]:
             query = f"CREATE {'UNIQUE' if field.unique else ''} INDEX {self.escape_name(field.name + "_index")} ON {self.escape_name(table.__table_name__)} ({self.escape_name(field.field_name)});"
             all_queries += query + "\r\n"
 
@@ -135,24 +135,25 @@ class ConnectionBase(object):
         return all_queries
 
     def generate_insert_query(self, table: type["TableBase"]) -> str:
-        fields = [f for f in table.get_fields() if not f.auto_increment]
+        fields = [f for f in table.get_fields() if not f.auto_increment and not f.is_lookup]
         field_parameters = [self.generate_parameter(f) for f in fields]
         query = f"INSERT INTO {table.__table_name__} ({", ".join([f.field_name for f in fields])}) VALUES ({", ".join(field_parameters)});"
         return query
 
     def generate_update_query(self, table: type["TableBase"]) -> str:
-        pk_fields = [f for f in table.get_fields() if f.primary_key]
-        non_pk_fields = [f for f in table.get_fields() if not f.primary_key and not f.auto_increment]
+        non_pk_fields = [
+            f for f in table.get_fields()
+            if not f.primary_key and not f.auto_increment and not f.is_lookup
+        ]
         non_pk_updates = [f"{f.field_name} = :{f.field_name}" for f in non_pk_fields]
-        pk_keys = [f"{f.field_name} = :{f.field_name}" for f in pk_fields]
-        query = f"UPDATE {table.__table_name__} SET {', '.join(non_pk_updates)} WHERE {', '.join(pk_keys)};"
+        pk_key = f"{table._pk_field.field_name} = :{table._pk_field.field_name}"
+        query = f"UPDATE {table.__table_name__} SET {', '.join(non_pk_updates)} WHERE {pk_key};"
         new_query = self.normalize_query(query)
         return new_query
 
     def generate_delete_query(self, table: type["TableBase"]) -> str:
-        pk_fields = [f for f in table.get_fields() if f.primary_key]
-        pk_keys = [f"{f.field_name} = :{f.field_name}" for f in pk_fields]
-        query = f"DELETE FROM {table.__table_name__} WHERE {', '.join(pk_keys)};"
+        pk_key = f"{table._pk_field.field_name} = :{table._pk_field.field_name}"
+        query = f"DELETE FROM {table.__table_name__} WHERE {pk_key};"
         new_query = self.normalize_query(query)
         return new_query
 
@@ -161,17 +162,15 @@ class ConnectionBase(object):
         return query
 
     def generate_fetch_by_id_query(self, table: type["TableBase"]) -> str:
-        fields = table.get_fields()
+        fields = [f for f in table.get_fields() if not f.is_lookup]
         field_names = [f.field_name for f in fields]
-        pk_fields = [f for f in table.get_fields() if f.primary_key]
-        pk_keys = [f"{f.field_name} = :{f.field_name}" for f in pk_fields]
-        query = f"SELECT {', '.join(field_names)} FROM {table.__table_name__} WHERE {', '.join(pk_keys)};"
+        pk_key = f"{table._pk_field.field_name} = :{table._pk_field.field_name}"
+        query = f"SELECT {', '.join(field_names)} FROM {table.__table_name__} WHERE {pk_key};"
         new_query = self.normalize_query(query)
         return new_query
 
     def generate_item_exists_query(self, table: type["TableBase"]) -> str:
-        pk_fields = [f for f in table.get_fields() if f.primary_key]
-        pk_keys = [f"{f.field_name} = :{f.field_name}" for f in pk_fields]
-        query = f"SELECT COUNT(*) FROM {table.__table_name__} WHERE {', '.join(pk_keys)};"
+        pk_key = f"{table._pk_field.field_name} = :{table._pk_field.field_name}"
+        query = f"SELECT COUNT(*) FROM {table.__table_name__} WHERE {pk_key};"
         new_query = self.normalize_query(query)
         return new_query

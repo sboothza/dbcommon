@@ -3,6 +3,8 @@ from .managed_cursor import ManagedCursor
 
 
 class Session(object):
+    connection: ConnectionBase = None
+
     def __init__(self, connection: ConnectionBase = None):
         self.connection = connection
 
@@ -64,19 +66,30 @@ class Session(object):
 
 
 class PersistentSession(Session):
-    __global_connection__: ConnectionBase = None
+    _global_session: PersistentSession = None
+
+    def __new__(cls, connection: ConnectionBase = None):
+        if cls._global_session is None:
+            cls._global_session = super(PersistentSession, cls).__new__(cls)
+        return cls._global_session
 
     def __init__(self, connection: ConnectionBase = None):
         #  super().__init__() # deliberately not calling this
-        if PersistentSession.__global_connection__ is None:
-            PersistentSession.__global_connection__ = connection
 
-        self.connection = PersistentSession.__global_connection__
-        # self.in_transaction = False
-        # self.cursor = self.connection.cursor
+        if self.connection is None:
+            self.connection = connection
+            self.in_transaction = False
+
+    def __enter__(self):
+        if not self.in_transaction:
+            self.start()
+            self.in_transaction = True
+        return self
 
     def __exit__(self, type, value, traceback):
-        self.connection.commit()
+        if self.in_transaction:
+            self.connection.commit()
+            self.in_transaction = False
 
     def close(self):
         pass

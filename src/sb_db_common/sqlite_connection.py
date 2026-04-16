@@ -10,6 +10,7 @@ from .utils import get_fullname, get_filename
 
 
 class SqliteConnection(ConnectionBase):
+    _sqlite_datetime_handlers_registered = False
     field_type_maps = {
         int: "INTEGER",
         float: "REAL",
@@ -29,6 +30,7 @@ class SqliteConnection(ConnectionBase):
             return
 
         super().__init__(connection_string)
+        self._register_datetime_handlers()
         connection_string = self.connection_string.replace("sqlite://", "")
         connection_string = get_fullname(connection_string)
         self.connection = sqlite3.connect(connection_string, check_same_thread=False,
@@ -38,11 +40,36 @@ class SqliteConnection(ConnectionBase):
         self.cursor = self.connection.cursor()
         self.cursor.execute("PRAGMA journal_mode=WAL;")
 
+    @classmethod
+    def _register_datetime_handlers(cls):
+        if cls._sqlite_datetime_handlers_registered:
+            return
+        sqlite3.register_adapter(datetime.datetime, cls._adapt_datetime)
+        sqlite3.register_converter("TIMESTAMP", cls._convert_timestamp)
+        cls._sqlite_datetime_handlers_registered = True
+
+    @staticmethod
+    def _adapt_datetime(value: datetime.datetime) -> str:
+        return value.isoformat(sep=" ")
+
+    @staticmethod
+    def _convert_timestamp(value: bytes) -> datetime.datetime:
+        value_str = value.decode()
+        if value_str.endswith("Z"):
+            value_str = f"{value_str[:-1]}+00:00"
+        try:
+            return datetime.datetime.fromisoformat(value_str)
+        except ValueError:
+            try:
+                return datetime.datetime.strptime(value_str, "%Y-%m-%d %H:%M:%S.%f")
+            except ValueError:
+                return datetime.datetime.strptime(value_str, "%Y-%m-%d %H:%M:%S")
+
     def escape_name(self, name: str) -> str:
         return f"\"{name}\""
 
     def generate_field_definition(self, field: Mapped) -> str:
-        return f"{self.escape_name(field.field_name)} {self.type_to_sql_type(field)} {self.generate_nullable(field)} {self.generate_is_pk(field)} {self.generate_autoincrement(field)} -- {field.description}"
+        return f"{self.escape_name(field.field_name)} {self.type_to_sql_type(field)} {self.generate_nullable(field)} {self.generate_is_pk(field)} {self.generate_autoincrement(field)}"
 
     def normalize_query(self, query: str) -> str:
         # "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='table_name';"
@@ -53,12 +80,10 @@ class SqliteConnection(ConnectionBase):
 
     def generate_create_query(self, table: type["TableBase"]) -> str:
         fields = table.get_fields()
-        field_defs = [self.generate_field_definition(f) for f in fields]
-        table_comment = ""
-        if table.__table_description__:
-            table_comment += f" -- {table.__table_description__}"
-        query = f"CREATE TABLE {self.escape_name(table.__table_name__)} {table_comment} \r\n"
-        query += f"({',\r\n '.join(field_defs)}));\r\n"
+        field_defs = [self.generate_field_definition(f) for f in fields if not f.is_lookup]
+
+        query = f"CREATE TABLE {self.escape_name(table.__table_name__)} \r\n"
+        query += f"({',\r\n '.join(field_defs)}\r\n);\r\n"
         query += self.generate_create_indexes(table)
         query += self.generate_additional_create(table)
         return self.normalize_query(query)

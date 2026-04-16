@@ -5,8 +5,15 @@ from . import Session, DataException
 from . import TableBase
 import datetime
 
+from .repo_context import RepositoryContext
+
+
 class RepositoryBase:
     __table__ = TableBase
+    context:RepositoryContext
+
+    def __init__(self, context: RepositoryContext):
+        self.context = context
 
     @classmethod
     def prepare(cls, session: Session):
@@ -65,20 +72,20 @@ class RepositoryBase:
             session.rollback()
             raise
 
-    def _get_by_id(self, session: Session, id: Union[None, dict]):
+    def _get_by_id(self, session: Session, id: Union[None, int]):
         self.prepare(session)
         if id is None:
             raise DataException("id cannot be null")
-        row = self._fetch_one(session, self.__table__.__fetch_by_id_script__, id)
+        row = self._fetch_one(session, self.__table__.__fetch_by_id_script__, {self.__table__._pk_field.name: id})
         if row:
-            return self.__table__().map_row(row, session.connection)
+            return self.__table__().map_row(self.context, row, session.connection)
         return None
 
-    def _item_exists(self, session: Session, id: Union[None, dict]):
+    def _item_exists(self, session: Session, id: Union[None, int]):
         self.prepare(session)
         if id is None:
             raise DataException("id cannot be null")
-        cnt = self._fetch_scalar(session, self.__table__.__item_exists_script__, id)
+        cnt = self._fetch_scalar(session, self.__table__.__item_exists_script__, {self.__table__._pk_field.name: id})
         return cnt > 0
 
     def fetch_one(self, session: Session, query: str, parameters: Union[None, dict] = None) -> \
@@ -89,7 +96,7 @@ class RepositoryBase:
                 parameters = {}
             row = self._fetch_one(session, query, parameters)
             if row:
-                return self.__table__().map_row(row)
+                return self.__table__().map_row(self.context, row, session.connection)
             return None
         except Exception as ex:
             print(ex)
@@ -100,7 +107,7 @@ class RepositoryBase:
             if parameters is None:
                 parameters = {}
             with session.fetch(query, parameters) as cursor:
-                return [self.__table__().map_row(row) for row in cursor]
+                return [self.__table__().map_row(self.context, row, session.connection) for row in cursor]
         except Exception as ex:
             print(ex)
 
@@ -126,8 +133,8 @@ class RepositoryBase:
         self.prepare(session)
         self._execute(session, item.__update_script__, item.get_update_params())
 
-    def _delete(self, session: Session, id: Union[None, dict]):
+    def _delete(self, session: Session, id: Union[None, int]):
         self.prepare(session)
         if id is None:
             raise DataException("id cannot be null")
-        self._execute(session, self.__table__.__delete_script__, id)
+        self._execute(session, self.__table__.__delete_script__, {self.__table__._pk_field.name: id})

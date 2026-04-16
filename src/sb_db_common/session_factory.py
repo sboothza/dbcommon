@@ -9,11 +9,12 @@ from .exceptions import DataException
 # from .pgsql_connection import PgSqlConnection
 from .session import Session, PersistentSession
 
+
 # from .sqlite_connection import SqliteConnection
 
 
 class SessionFactory(object):
-    connections:dict[str, ConnectionBase] = {}
+    connections: dict[str, ConnectionBase] = {}
 
     @staticmethod
     def get_connection(connection_string: str) -> ConnectionBase:
@@ -29,11 +30,7 @@ class SessionFactory(object):
     @staticmethod
     def connect(connection_string: str) -> Session:
         if "memory" in connection_string:
-            if PersistentSession.__global_connection__ is None:
-                session = PersistentSession(SessionFactory.get_connection(connection_string))
-            else:
-                session = PersistentSession()
-
+            session = PersistentSession(SessionFactory.get_connection(connection_string))
         else:
             session = Session(SessionFactory.get_connection(connection_string))
 

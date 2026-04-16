@@ -1,6 +1,7 @@
 import datetime
 import unittest
 
+from sb_db_common.repo_context import RepositoryContext
 from test_entity import TestEntity
 from sb_db_common import SessionFactory
 from test_repository import TestRepository
@@ -14,8 +15,9 @@ class EntityTests(unittest.TestCase):
         self._test_basic("pgsql://postgres:postgres@localhost/postgres")
 
     def _test_basic(self, connection_string):
+        context = RepositoryContext()
+        repo = context.get_repository(TestEntity)
         with SessionFactory.connect(connection_string) as session:
-            repo = TestRepository()
             repo.prepare(session)
 
             repo.create_schema(session)
@@ -33,7 +35,7 @@ class EntityTests(unittest.TestCase):
             assert entity.create_date == dt
             assert entity.active == True
 
-            entity = repo._get_by_id(session, entity.get_id_params())
+            entity = repo._get_by_id(session, entity.id)
             assert entity.id == 1
             assert entity.name == "Stephen"
             assert entity.address == "1 my street"
@@ -45,7 +47,7 @@ class EntityTests(unittest.TestCase):
             entity.name = "Stephen2"
             entity.active = False
             repo.update(session, entity)
-            entity = repo._get_by_id(session, entity.get_id_params())
+            entity = repo._get_by_id(session, entity.id)
             assert entity.id == 1
             assert entity.name == "Stephen2"
             assert entity.address == "1 my street"

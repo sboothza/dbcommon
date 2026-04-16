@@ -16,6 +16,7 @@ class Mapped:
     ignore: bool
     indexed: bool
     description: str
+    is_lookup: bool
 
     def __str__(self):
         return f"{self.field_name} - {self.description}"
@@ -24,7 +25,7 @@ class Mapped:
     def mapped_column(name: str = None, field_name: str = None, field_type: type = int, order: int = 0, size: int = 50,
                       precision: int = 2, primary_key: bool = False, autoincrement: bool = False, unique: bool = False,
                       optional: bool = False, default: str = "", ignore: bool = False, indexed: bool = False,
-                      description: str = "") -> Mapped:
+                      description: str = "", is_lookup: bool = False) -> Mapped:
         mapped = Mapped()
         mapped.name = name
         mapped.field_name = field_name
@@ -40,6 +41,7 @@ class Mapped:
         mapped.ignore = ignore
         mapped.indexed = indexed
         mapped.description = description
+        mapped.is_lookup = is_lookup
 
         return mapped
 

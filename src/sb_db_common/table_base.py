@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 
+from . import DataException
 from .connection_base import ConnectionBase
 from .mapped_field import Mapped, Index
 import datetime
@@ -27,6 +28,7 @@ class TableBase:
     _mapped_field_list: list[Mapped] = []
 
     _autoincrement_field: Mapped = None
+    _pk_field: Mapped = None
 
     _mapped_indexes: dict[str, Index] = {}
     _mapped_index_list: list[Index] = []
@@ -39,8 +41,20 @@ class TableBase:
                 for name, attr in inspect.getmembers(kls):
                     if "Mapped" in type(attr).__name__ and name not in entity_class_fields:
                         entity_class_fields[name] = attr
-                        if attr.auto_increment and cls._autoincrement_field is None:
-                            cls._autoincrement_field = attr
+                        if attr.auto_increment:
+                            if cls._autoincrement_field is None:
+                                if attr.field_type is not int:
+                                    raise DataException("Autoincrement field must be int")
+                                cls._autoincrement_field = attr
+                            else:
+                                raise DataException(f"More than one autoincrement field is defined on {cls.__name__}")
+                        if attr.primary_key:
+                            if cls._pk_field is None:
+                                if attr.field_type is not int:
+                                    raise DataException("Primary key field must be int")
+                                cls._pk_field = attr
+                            else:
+                                raise DataException(f"More than one primary key field is defined on {cls.__name__}")
 
             cls._mapped_fields = entity_class_fields
             cls._mapped_field_list = list(entity_class_fields.values())
@@ -62,16 +76,13 @@ class TableBase:
 
         return cls._mapped_index_list
 
-    def map_row(self, row, connection: ConnectionBase) -> TableBase:
+    def map_row(self, context, row, connection: ConnectionBase) -> TableBase:
         ...
 
     def get_insert_params(self) -> dict:
         ...
 
     def get_update_params(self) -> dict:
-        ...
-
-    def get_id_params(self) -> dict:
         ...
 
     @classmethod

@@ -7,6 +7,7 @@ from .connection_base import ConnectionBase
 from .mapped_field import Mapped, Index
 import datetime
 
+from .repo_context import RepositoryContext
 
 
 class TableBase:
@@ -86,10 +87,10 @@ class TableBase:
         ...
 
     @classmethod
-    def generate_queries(cls, connection: ConnectionBase):
+    def generate_queries(cls, connection: ConnectionBase, context:RepositoryContext):
         cls.__table_exists_script__ = connection.generate_exists_query(cls)
         cls.__table_count_script__ = connection.generate_count_query(cls)
-        cls.__create_script__ = connection.generate_create_query(cls)
+        cls.__create_script__ = connection.generate_create_query(cls, context)
         cls.__insert_script__ = connection.generate_insert_query(cls)
         cls.__update_script__ = connection.generate_update_query(cls)
         cls.__delete_script__ = connection.generate_delete_query(cls)

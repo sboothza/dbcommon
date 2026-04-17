@@ -1,10 +1,12 @@
 import inspect
 import datetime
+from typing import dataclass_transform
 
+from . import Mapped
 from .table_base import TableBase
 from .entity_proxy import make_typed_entity_proxy
 
-
+@dataclass_transform(field_specifiers=(Mapped.mapped_column,))
 def entity(klass=None, table_name=None, description=None):
     def wrap(klass):
 

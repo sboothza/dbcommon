@@ -13,6 +13,5 @@ from .session_factory import SessionFactory
 from .table_base import TableBase
 from .repository_base import RepositoryBase
 from .queued_session import QueuedSession
-from .entity import entity
 from .mapped_field import Mapped, Index
-
+from .entity import entity

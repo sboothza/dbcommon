@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 from .managed_cursor import ManagedCursor
+from .repo_context import RepositoryContext
 
 if TYPE_CHECKING:
     from .table_base import TableBase
@@ -77,8 +78,14 @@ class ConnectionBase(object):
     def escape_name(self, name: str) -> str:
         return name
 
-    def generate_field_definition(self, field: Mapped) -> str:
-        return f"{self.escape_name(field.field_name)} {self.type_to_sql_type(field)} {self.generate_nullable(field)} {self.generate_is_pk(field)} {self.generate_autoincrement(field)}"
+    def generate_foreign_key(self, field: Mapped, context: RepositoryContext) -> str:
+        if field.is_lookup:
+            repo = context.get_repository(field.lookup_type)
+            return f"REFERENCES {repo.__table__.__table_name__}({repo.__table__._pk_field.field_name}) "
+        return ""
+
+    def generate_field_definition(self, field: Mapped, context: RepositoryContext) -> str:
+        return f"{self.escape_name(field.field_name)} {self.type_to_sql_type(field)} {self.generate_nullable(field)} {self.generate_is_pk(field)} {self.generate_autoincrement(field)} {self.generate_foreign_key(field, context)}"
 
     def generate_parameter(self, field: Mapped) -> str:
         return f":{field.field_name}"
@@ -109,11 +116,19 @@ class ConnectionBase(object):
     def generate_additional_create(self, table: type["TableBase"]) -> str:
         return "\r\n"
 
-    def generate_create_query(self, table: type["TableBase"]) -> str:
-        fields = [f for f in table.get_fields() if not f.is_lookup]
-        field_defs = [self.generate_field_definition(f) for f in fields]
+    def generate_create_query(self, table: type["TableBase"], context: RepositoryContext) -> str:
+        fields_temp = [f for f in table.get_fields() if not f.is_lookup]
+        fields = []
+        for field in fields_temp:
+            lookup_fields = [f for f in table.get_fields() if f.is_lookup and f.field_name == field.field_name]
+            if len(lookup_fields) > 0:
+                field.is_lookup = True
+                field.lookup_type = lookup_fields[0].field_type
+            fields.append(field)
+
+        field_defs = [self.generate_field_definition(f, context) for f in fields]
         query = f"CREATE TABLE {self.escape_name(table.__table_name__)} \r\n"
-        query += f"({',\r\n '.join(field_defs)}));\r\n"
+        query += f"({',\r\n '.join(field_defs)});\r\n"
         query += self.generate_create_indexes(table)
         query += self.generate_additional_create(table)
         return self.normalize_query(query)
@@ -124,7 +139,7 @@ class ConnectionBase(object):
         all_queries = ""
         # do single field indexes first
         for field in [f for f in fields if (f.indexed or f.unique) and not f.is_lookup]:
-            query = f"CREATE {'UNIQUE' if field.unique else ''} INDEX {self.escape_name(field.name + "_index")} ON {self.escape_name(table.__table_name__)} ({self.escape_name(field.field_name)});"
+            query = f"CREATE {'UNIQUE' if field.unique else ''} INDEX {self.escape_name(table.__table_name__ + "_" + field.name + "_index")} ON {self.escape_name(table.__table_name__)} ({self.escape_name(field.field_name)});"
             all_queries += query + "\r\n"
 
         # do separate indexes

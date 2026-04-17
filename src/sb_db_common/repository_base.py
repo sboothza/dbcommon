@@ -10,15 +10,14 @@ from .repo_context import RepositoryContext
 
 class RepositoryBase:
     __table__ = TableBase
-    context:RepositoryContext
+    context: RepositoryContext
 
     def __init__(self, context: RepositoryContext):
         self.context = context
 
-    @classmethod
-    def prepare(cls, session: Session):
-        if cls.__table__ is not None and session.connection is not None and cls.__table__.__table_exists_script__ == "":
-            cls.__table__.generate_queries(session.connection)
+    def prepare(self, session: Session):
+        if self.__table__ is not None and session.connection is not None and self.__table__.__table_exists_script__ == "":
+            self.__table__.generate_queries(session.connection, self.context)
 
     def drop_schema(self, session: Session):
         self.prepare(session)

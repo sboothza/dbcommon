@@ -23,7 +23,7 @@ class EntityTests(unittest.TestCase):
             repo.create_schema(session)
 
             dt = datetime.datetime.now()
-            entity:TestEntity = TestEntity("Stephen", "1 my street", 34, 12.56, dt,True)
+            entity: TestEntity = TestEntity("Stephen", "1 my street", 34, 12.56, dt, True)
 
             entity = repo.add(session, entity)
 
@@ -55,5 +55,3 @@ class EntityTests(unittest.TestCase):
             assert entity.number_2 == 12.56
             assert entity.create_date == dt
             assert entity.active == False
-
-

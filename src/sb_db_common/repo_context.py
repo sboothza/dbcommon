@@ -12,12 +12,15 @@ class RepositoryContext:
     repositories: dict[str, type] = {}  # entity type : repo type
 
     def get_repository(self, entity: type) -> RepositoryBase:
+        return self.get_repository_by_name(entity.__name__)
+
+    def get_repository_by_name(self, entity_type: str) -> RepositoryBase:
         if len(RepositoryContext.repositories) == 0:
             raise Exception(f"No repositories defined!")
 
-        repo_type = RepositoryContext.repositories[entity.__name__]
+        repo_type = RepositoryContext.repositories[entity_type]
         if repo_type is None:
-            raise Exception(f"No repository defined for {entity}")
+            raise Exception(f"No repository defined for {entity_type}")
         return repo_type(self)
 
     @staticmethod

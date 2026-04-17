@@ -61,11 +61,12 @@ class PgSqlConnection(ConnectionBase):
         return new_query
 
     def generate_additional_create(self, table: type["TableBase"]) -> str:
+        indexes = table.get_indexes()
         table_comment = ""
         if table.__table_description__:
             table_comment += f"COMMENT ON TABLE {table.__table_name__} IS {table.__table_description__} \r\n"
         field_comments = [f"COMMENT ON COLUMN {table.__table_name__}.{f.field_name} IS '{f.description}';" for f in table.get_fields() if f.description != ""]
-        index_comments = [f"COMMENT ON INDEX {i.name} IS '{i.description}';" for i in table.indexes if i.description != ""]
+        index_comments = [f"COMMENT ON INDEX {i.name} IS '{i.description}';" for i in indexes if i.description != ""]
         query = table_comment
         query += ", \r\n".join(field_comments)
         query += ", \r\n".join(index_comments)
@@ -82,7 +83,7 @@ class PgSqlConnection(ConnectionBase):
         return map_func(sql_value)
 
     def generate_insert_query(self, table: type["TableBase"]) -> str:
-        fields = [f for f in table.get_fields() if not f.auto_increment]
+        fields = [f for f in table.get_fields() if not f.auto_increment and not f.is_lookup]
         field_parameters = [self.generate_parameter(f) for f in fields]
         query = f"INSERT INTO {table.__table_name__} ({", ".join([f.field_name for f in fields])}) VALUES ({", ".join(field_parameters)}) RETURNING {table._autoincrement_field.field_name};"
         return query

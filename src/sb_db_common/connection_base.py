@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, get_args
 
 from .managed_cursor import ManagedCursor
 from .repo_context import RepositoryContext
@@ -81,7 +81,12 @@ class ConnectionBase(object):
     def generate_foreign_key(self, field: Mapped, context: RepositoryContext) -> str:
         if field.is_lookup:
             repo = context.get_repository(field.lookup_type)
-            return f"REFERENCES {repo.__table__.__table_name__}({repo.__table__._pk_field.field_name}) "
+            if type(field.field_type) is not list and field.is_1_many == False:
+                return f"REFERENCES {repo.__table__.__table_name__}({repo.__table__._pk_field.field_name}) "
+
+            if field.is_1_many:
+                return f"REFERENCES {repo.__table__.__table_name__}({field.remote_field_name}) "
+
         return ""
 
     def generate_field_definition(self, field: Mapped, context: RepositoryContext) -> str:
@@ -120,10 +125,14 @@ class ConnectionBase(object):
         fields_temp = [f for f in table.get_fields() if not f.is_lookup]
         fields = []
         for field in fields_temp:
-            lookup_fields = [f for f in table.get_fields() if f.is_lookup and f.field_name == field.field_name]
-            if len(lookup_fields) > 0:
+            lookup_field = next((f for f in table.get_fields() if f.is_lookup and f.field_name == field.field_name),
+                                None)
+            if lookup_field is not None:
                 field.is_lookup = True
-                field.lookup_type = lookup_fields[0].field_type
+                if type(field.field_type) is list:
+                    field.lookup_type = get_args(lookup_field.field_type)[0]
+                else:
+                    field.lookup_type = lookup_field.field_type
             fields.append(field)
 
         field_defs = [self.generate_field_definition(f, context) for f in fields]
@@ -183,6 +192,18 @@ class ConnectionBase(object):
         query = f"SELECT {', '.join(field_names)} FROM {table.__table_name__} WHERE {pk_key};"
         new_query = self.normalize_query(query)
         return new_query
+
+    def generate_fetch_for_parent_query(self, table: type["TableBase"]) -> str:
+        remote_field = next((f for f in table.get_fields() if f.is_lookup and f.remote_field_name != ""), None)
+        if remote_field:
+            fields = [f for f in table.get_fields() if not f.is_lookup]
+            field_names = [f.field_name for f in fields]
+            key = f"{remote_field.field_name} = :remote_id"
+            query = f"SELECT {', '.join(field_names)} FROM {table.__table_name__} WHERE {key};"
+            new_query = self.normalize_query(query)
+            return new_query
+
+        return ""
 
     def generate_item_exists_query(self, table: type["TableBase"]) -> str:
         pk_key = f"{table._pk_field.field_name} = :{table._pk_field.field_name}"

@@ -20,7 +20,8 @@ class EntityTests(unittest.TestCase):
         with SessionFactory.connect(connection_string) as session:
             repo.prepare(session)
 
-            repo.create_schema(session)
+            if not repo.schema_exists(session):
+                repo.create_schema(session)
 
             dt = datetime.datetime.now()
             entity: TestEntity = TestEntity("Stephen", "1 my street", 34, 12.56, dt, True)

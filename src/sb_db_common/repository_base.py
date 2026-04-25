@@ -110,7 +110,15 @@ class RepositoryBase:
         except Exception as ex:
             print(ex)
 
-    def count(self, session: Session):
+    def fetch_for_parent(self, session: Session, parent_id: int) -> list[TableBase]:
+        self.prepare(session)
+        try:
+            with session.fetch(self.__table__.__fetch_for_parent_script__, {"parent_id": parent_id}) as cursor:
+                return [self.__table__().map_row(self.context, row, session.connection) for row in cursor]
+        except Exception as ex:
+            print(ex)
+
+    def count(self, session: Session) -> int:
         self.prepare(session)
         script = self.__table__.__table_count_script__
         return self._fetch_scalar(session, script)

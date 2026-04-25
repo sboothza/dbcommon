@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import inspect
+from typing import get_args
 
-from . import DataException
+from . import DataException, entity
 from .connection_base import ConnectionBase
 from .mapped_field import Mapped, Index
 import datetime
@@ -24,6 +25,7 @@ class TableBase:
     __drop_script__ = ""
     __fetch_by_id_script__ = ""
     __item_exists_script__ = ""
+    __fetch_for_parent_script__ = ""
 
     _mapped_fields: dict[str, Mapped] = {}
     _mapped_field_list: list[Mapped] = []
@@ -87,7 +89,17 @@ class TableBase:
         ...
 
     @classmethod
-    def generate_queries(cls, connection: ConnectionBase, context:RepositoryContext):
+    def generate_queries(cls, connection: ConnectionBase, context: RepositoryContext):
+        # map remote references
+        remote_lookups = [f for f in cls.get_fields() if f.is_lookup and f.remote_field_name != ""]
+        for remote_lookup in remote_lookups:
+            remote_entity: TableBase = get_args(remote_lookup.field_type)[0]
+            remote_field: Mapped = getattr(remote_entity, remote_lookup.remote_field_name)
+            remote_field.is_lookup = True
+            remote_field.is_1_many = True
+            remote_field.remote_field_name = remote_lookup.field_name
+            remote_field.lookup_type = remote_lookup.lookup_type
+
         cls.__table_exists_script__ = connection.generate_exists_query(cls)
         cls.__table_count_script__ = connection.generate_count_query(cls)
         cls.__create_script__ = connection.generate_create_query(cls, context)
@@ -97,3 +109,4 @@ class TableBase:
         cls.__drop_script__ = connection.generate_drop_query(cls)
         cls.__fetch_by_id_script__ = connection.generate_fetch_by_id_query(cls)
         cls.__item_exists_script__ = connection.generate_item_exists_query(cls)
+        cls.__fetch_for_parent_script__ = connection.generate_fetch_for_parent_query(cls)

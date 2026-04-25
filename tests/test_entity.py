@@ -5,8 +5,6 @@ from sb_db_common.entity import entity
 from sb_db_common import TableBase
 
 
-
-
 @entity(table_name="testentity")
 class TestEntity(TableBase):
     id: int = Mapped.mapped_column("id", "id", int, 0, primary_key=True, autoincrement=True, init=False)

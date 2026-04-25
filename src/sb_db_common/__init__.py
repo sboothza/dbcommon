@@ -1,4 +1,3 @@
-from .config_base import ConfigBase
 from .exceptions import DatatypeException, DataException
 from .managed_cursor import ManagedCursor
 from .connection_base import ConnectionBase

@@ -5,7 +5,7 @@ from .repo_context import RepositoryContext
 
 if TYPE_CHECKING:
     from .table_base import TableBase
-from .mapped_field import Mapped
+from .mapped_field import Mapped, ReferenceType
 
 
 class ConnectionBase(object):
@@ -78,19 +78,19 @@ class ConnectionBase(object):
     def escape_name(self, name: str) -> str:
         return name
 
-    def generate_foreign_key(self, field: Mapped, context: RepositoryContext) -> str:
+    def generate_foreign_key(self, field: Mapped) -> str:
         if field.is_lookup:
-            repo = context.get_repository(field.lookup_type)
-            if type(field.field_type) is not list and field.is_1_many == False:
+            repo = RepositoryContext.get_repository(field.lookup_type)
+            if type(field.field_type) is not list and field.reference_type == ReferenceType.OneToMany:
                 return f"REFERENCES {repo.__table__.__table_name__}({repo.__table__._pk_field.field_name}) "
 
             if field.is_1_many:
-                return f"REFERENCES {repo.__table__.__table_name__}({field.remote_field_name}) "
+                return f"REFERENCES {repo.__table__.__table_name__}({field.join_parent_field_name}) "
 
         return ""
 
-    def generate_field_definition(self, field: Mapped, context: RepositoryContext) -> str:
-        return f"{self.escape_name(field.field_name)} {self.type_to_sql_type(field)} {self.generate_nullable(field)} {self.generate_is_pk(field)} {self.generate_autoincrement(field)} {self.generate_foreign_key(field, context)}"
+    def generate_field_definition(self, field: Mapped) -> str:
+        return f"{self.escape_name(field.field_name)} {self.type_to_sql_type(field)} {self.generate_nullable(field)} {self.generate_is_pk(field)} {self.generate_autoincrement(field)} {self.generate_foreign_key(field)}"
 
     def generate_parameter(self, field: Mapped) -> str:
         return f":{field.field_name}"
@@ -121,11 +121,11 @@ class ConnectionBase(object):
     def generate_additional_create(self, table: type["TableBase"]) -> str:
         return "\r\n"
 
-    def generate_create_query(self, table: type["TableBase"], context: RepositoryContext) -> str:
-        fields_temp = [f for f in table.get_fields() if not f.is_lookup]
+    def generate_create_query(self, table: type["TableBase"]) -> str:
+        fields_temp = [f for f in table.get_fields() if f.reference_type == ReferenceType.NoReference]
         fields = []
         for field in fields_temp:
-            lookup_field = next((f for f in table.get_fields() if f.is_lookup and f.field_name == field.field_name),
+            lookup_field = next((f for f in table.get_fields() if f.reference_type == ReferenceType.Lookup and f.field_name == field.field_name),
                                 None)
             if lookup_field is not None:
                 field.is_lookup = True
@@ -135,7 +135,7 @@ class ConnectionBase(object):
                     field.lookup_type = lookup_field.field_type
             fields.append(field)
 
-        field_defs = [self.generate_field_definition(f, context) for f in fields]
+        field_defs = [self.generate_field_definition(f) for f in fields]
         query = f"CREATE TABLE {self.escape_name(table.__table_name__)} \r\n"
         query += f"({',\r\n '.join(field_defs)});\r\n"
         query += self.generate_create_indexes(table)
@@ -147,7 +147,7 @@ class ConnectionBase(object):
         indexes = table.get_indexes()
         all_queries = ""
         # do single field indexes first
-        for field in [f for f in fields if (f.indexed or f.unique) and not f.is_lookup]:
+        for field in [f for f in fields if (f.indexed or f.unique) and not f.reference_type == ReferenceType.NoReference]:
             query = f"CREATE {'UNIQUE' if field.unique else ''} INDEX {self.escape_name(table.__table_name__ + "_" + field.name + "_index")} ON {self.escape_name(table.__table_name__)} ({self.escape_name(field.field_name)});"
             all_queries += query + "\r\n"
 
@@ -159,7 +159,7 @@ class ConnectionBase(object):
         return all_queries
 
     def generate_insert_query(self, table: type["TableBase"]) -> str:
-        fields = [f for f in table.get_fields() if not f.auto_increment and not f.is_lookup]
+        fields = [f for f in table.get_fields() if not f.auto_increment and f.reference_type == ReferenceType.NoReference]
         field_parameters = [self.generate_parameter(f) for f in fields]
         query = f"INSERT INTO {table.__table_name__} ({", ".join([f.field_name for f in fields])}) VALUES ({", ".join(field_parameters)});"
         return query
@@ -167,7 +167,7 @@ class ConnectionBase(object):
     def generate_update_query(self, table: type["TableBase"]) -> str:
         non_pk_fields = [
             f for f in table.get_fields()
-            if not f.primary_key and not f.auto_increment and not f.is_lookup
+            if not f.primary_key and not f.auto_increment and f.reference_type == ReferenceType.NoReference
         ]
         non_pk_updates = [f"{f.field_name} = :{f.field_name}" for f in non_pk_fields]
         pk_key = f"{table._pk_field.field_name} = :{table._pk_field.field_name}"
@@ -186,7 +186,7 @@ class ConnectionBase(object):
         return query
 
     def generate_fetch_by_id_query(self, table: type["TableBase"]) -> str:
-        fields = [f for f in table.get_fields() if not f.is_lookup]
+        fields = [f for f in table.get_fields() if f.reference_type == ReferenceType.NoReference]
         field_names = [f.field_name for f in fields]
         pk_key = f"{table._pk_field.field_name} = :{table._pk_field.field_name}"
         query = f"SELECT {', '.join(field_names)} FROM {table.__table_name__} WHERE {pk_key};"
@@ -194,11 +194,11 @@ class ConnectionBase(object):
         return new_query
 
     def generate_fetch_for_parent_query(self, table: type["TableBase"]) -> str:
-        remote_field = next((f for f in table.get_fields() if f.is_lookup and f.remote_field_name != ""), None)
+        remote_field = next((f for f in table.get_fields() if f.reference_type == ReferenceType.Lookup), None)
         if remote_field:
-            fields = [f for f in table.get_fields() if not f.is_lookup]
+            fields = [f for f in table.get_fields() if f.reference_type == ReferenceType.NoReference]
             field_names = [f.field_name for f in fields]
-            key = f"{remote_field.field_name} = :remote_id"
+            key = f"{remote_field.field_name} = :parent_id"
             query = f"SELECT {', '.join(field_names)} FROM {table.__table_name__} WHERE {key};"
             new_query = self.normalize_query(query)
             return new_query

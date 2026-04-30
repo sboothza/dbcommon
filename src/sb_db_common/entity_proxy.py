@@ -22,23 +22,20 @@ class EntityProxy(Generic[T]):
     _obj: Optional[T]
     _id: int
     _cls: type[T]
-    _context: Any
     _connection_string: str
 
-    def __init__(self, id: int, cls: type[T], context: RepositoryContext, connection_string:str):
+    def __init__(self, id: int, cls: type[T], connection_string:str):
         object.__setattr__(self, "_obj", None)
         object.__setattr__(self, "_id", id)
         object.__setattr__(self, "_cls", cls)
-        object.__setattr__(self, "_context", context)
         object.__setattr__(self, "_connection_string", connection_string)
 
     def _initialize(self) -> T:
         obj = object.__getattribute__(self, "_obj")
         if obj is None:
-            context = object.__getattribute__(self, "_context")
             cls = object.__getattribute__(self, "_cls")
             id = object.__getattribute__(self, "_id")
-            repo:RepositoryBase = context.get_repository(cls)
+            repo:RepositoryBase = RepositoryContext.get_repository(cls)
             with SessionFactory.connect(self._connection_string) as session:
                 obj = repo._get_by_id(session, id)
                 object.__setattr__(self, "_obj", obj)
@@ -73,8 +70,8 @@ def make_typed_entity_proxy(entity_cls: type[T]) -> type[T]:
     class _TypedEntityProxy(entity_cls):  # type: ignore[misc, valid-type]
         _proxy: EntityProxy[T]
 
-        def __init__(self, id: int, context: RepositoryContext, connection_string:str):
-            object.__setattr__(self, "_proxy", EntityProxy[T](id=id, cls=entity_cls, context=context, connection_string=connection_string))
+        def __init__(self, id: int, connection_string:str):
+            object.__setattr__(self, "_proxy", EntityProxy[T](id=id, cls=entity_cls, connection_string=connection_string))
 
         def __getattribute__(self, name: str) -> Any:
             if name in {"_proxy", "__class__", "__dict__", "__weakref__", "__repr__", "__str__", "__dir__"}:

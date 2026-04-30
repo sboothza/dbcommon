@@ -5,7 +5,7 @@ import sqlite3
 from typing import Any
 
 from .connection_base import ConnectionBase
-from .mapped_field import Mapped
+from .mapped_field import Mapped, ReferenceType
 from .utils import get_fullname, get_filename
 
 
@@ -79,8 +79,8 @@ class SqliteConnection(ConnectionBase):
         return new_query
 
     def generate_create_query(self, table: type["TableBase"]) -> str:
-        fields = table.get_fields()
-        field_defs = [self.generate_field_definition(f) for f in fields if not f.is_lookup]
+        fields:list[Mapped] = table.get_fields()
+        field_defs = [self.generate_field_definition(f) for f in fields if f.reference_type == ReferenceType.NoReference]
 
         query = f"CREATE TABLE {self.escape_name(table.__table_name__)} \r\n"
         query += f"({',\r\n '.join(field_defs)}\r\n);\r\n"

@@ -10,14 +10,13 @@ from .repo_context import RepositoryContext
 
 class RepositoryBase:
     __table__ = TableBase
-    context: RepositoryContext
 
-    def __init__(self, context: RepositoryContext):
-        self.context = context
+    def __init__(self):
+        ...
 
     def prepare(self, session: Session):
         if self.__table__ is not None and session.connection is not None and self.__table__.__table_exists_script__ == "":
-            self.__table__.generate_queries(session.connection, self.context)
+            self.__table__.generate_queries(session.connection)
 
     def drop_schema(self, session: Session):
         self.prepare(session)
@@ -77,7 +76,7 @@ class RepositoryBase:
             raise DataException("id cannot be null")
         row = self._fetch_one(session, self.__table__.__fetch_by_id_script__, {self.__table__._pk_field.name: id})
         if row:
-            return self.__table__().map_row(self.context, row, session.connection)
+            return self.__table__(connection=session.connection).map_row(row, session.connection)
         return None
 
     def _item_exists(self, session: Session, id: Union[None, int]):
@@ -95,7 +94,8 @@ class RepositoryBase:
                 parameters = {}
             row = self._fetch_one(session, query, parameters)
             if row:
-                return self.__table__().map_row(self.context, row, session.connection)
+                obj = self.__table__(connection=session.connection)
+                return obj.map_row(row, session.connection)
             return None
         except Exception as ex:
             print(ex)
@@ -106,7 +106,7 @@ class RepositoryBase:
             if parameters is None:
                 parameters = {}
             with session.fetch(query, parameters) as cursor:
-                return [self.__table__().map_row(self.context, row, session.connection) for row in cursor]
+                return [self.__table__(connection=session.connection).map_row(row, session.connection) for row in cursor]
         except Exception as ex:
             print(ex)
 
@@ -114,7 +114,15 @@ class RepositoryBase:
         self.prepare(session)
         try:
             with session.fetch(self.__table__.__fetch_for_parent_script__, {"parent_id": parent_id}) as cursor:
-                return [self.__table__().map_row(self.context, row, session.connection) for row in cursor]
+                return [self.__table__(connection=session.connection).map_row(row, session.connection) for row in cursor]
+        except Exception as ex:
+            print(ex)
+
+    def fetch_id_for_parent(self, session: Session, parent_id: int) -> list[int]:
+        self.prepare(session)
+        try:
+            with session.fetch(self.__table__.__fetch_for_parent_script__, {"parent_id": parent_id}) as cursor:
+                return [row[0] for row in cursor]
         except Exception as ex:
             print(ex)
 

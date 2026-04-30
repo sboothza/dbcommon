@@ -1,15 +1,39 @@
 from __future__ import annotations
 
+import builtins
+import importlib
 import inspect
-from typing import get_args
 
-from . import DataException, entity
+from . import DataException
 from .connection_base import ConnectionBase
-from .mapped_field import Mapped, Index
-import datetime
+from .mapped_field import Mapped, Index, ReferenceType
 
-from .repo_context import RepositoryContext
+def resolve_type(type_name: str) -> type:
+    if type_name is None:
+        raise ValueError("type_name cannot be None")
 
+    name = type_name.strip()
+    if name == "":
+        raise ValueError("type_name cannot be empty")
+
+    # Fast-path for common builtins.
+    builtin_type = getattr(builtins, name, None)
+    if isinstance(builtin_type, type):
+        return builtin_type
+
+    # Support fully qualified paths, e.g. datetime.datetime.
+    if "." in name:
+        module_name, attr_name = name.rsplit(".", 1)
+        module = importlib.import_module(module_name)
+        resolved = getattr(module, attr_name)
+        if isinstance(resolved, type):
+            return resolved
+        raise TypeError(f"{name!r} resolves to a non-type value")
+
+    raise ValueError(
+        f"Unknown type name: {type_name!r}. "
+        f"Use a builtin type name (e.g. 'int') or a fully qualified path (e.g. 'datetime.datetime')."
+    )
 
 class TableBase:
     __table_name__ = ""
@@ -79,7 +103,10 @@ class TableBase:
 
         return cls._mapped_index_list
 
-    def map_row(self, context, row, connection: ConnectionBase) -> TableBase:
+    def __init__(self, connection:ConnectionBase=None):
+        ...
+
+    def map_row(self, row, connection: ConnectionBase) -> TableBase:
         ...
 
     def get_insert_params(self) -> dict:
@@ -89,20 +116,20 @@ class TableBase:
         ...
 
     @classmethod
-    def generate_queries(cls, connection: ConnectionBase, context: RepositoryContext):
+    def generate_queries(cls, connection: ConnectionBase):
         # map remote references
-        remote_lookups = [f for f in cls.get_fields() if f.is_lookup and f.remote_field_name != ""]
+        remote_lookups = [f for f in cls.get_fields() if f.reference_type == ReferenceType.Lookup]
         for remote_lookup in remote_lookups:
-            remote_entity: TableBase = get_args(remote_lookup.field_type)[0]
-            remote_field: Mapped = getattr(remote_entity, remote_lookup.remote_field_name)
-            remote_field.is_lookup = True
-            remote_field.is_1_many = True
-            remote_field.remote_field_name = remote_lookup.field_name
+            if type(remote_lookup.field_type).__name__ == "str":
+                remote_lookup.field_type = resolve_type(remote_lookup.field_type)
+            remote_entity: TableBase = remote_lookup.field_type
+            remote_field: Mapped = getattr(remote_entity, remote_lookup.join_parent_field_name)
+            remote_field.lookup_field_name = remote_lookup.field_name
             remote_field.lookup_type = remote_lookup.lookup_type
 
         cls.__table_exists_script__ = connection.generate_exists_query(cls)
         cls.__table_count_script__ = connection.generate_count_query(cls)
-        cls.__create_script__ = connection.generate_create_query(cls, context)
+        cls.__create_script__ = connection.generate_create_query(cls)
         cls.__insert_script__ = connection.generate_insert_query(cls)
         cls.__update_script__ = connection.generate_update_query(cls)
         cls.__delete_script__ = connection.generate_delete_query(cls)

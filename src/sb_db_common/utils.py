@@ -1,4 +1,6 @@
 from pathlib import Path
+import builtins
+import importlib
 from typing import List
 
 
@@ -73,3 +75,31 @@ def pascal(value: str) -> str:
 
 def safeget(d: dict, k, default):
     return d.get(k) if k in d else default
+
+
+def resolve_type(type_name: str) -> type:
+    if type_name is None:
+        raise ValueError("type_name cannot be None")
+
+    name = type_name.strip()
+    if name == "":
+        raise ValueError("type_name cannot be empty")
+
+    # Fast-path for common builtins.
+    builtin_type = getattr(builtins, name, None)
+    if isinstance(builtin_type, type):
+        return builtin_type
+
+    # Support fully qualified paths, e.g. datetime.datetime.
+    if "." in name:
+        module_name, attr_name = name.rsplit(".", 1)
+        module = importlib.import_module(module_name)
+        resolved = getattr(module, attr_name)
+        if isinstance(resolved, type):
+            return resolved
+        raise TypeError(f"{name!r} resolves to a non-type value")
+
+    raise ValueError(
+        f"Unknown type name: {type_name!r}. "
+        f"Use a builtin type name (e.g. 'int') or a fully qualified path (e.g. 'datetime.datetime')."
+    )

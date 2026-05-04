@@ -8,11 +8,12 @@ from . import ConnectionBase
 
 class CockroachConnection(PgSqlConnection):
     def __init__(self, connection_string: str = ""):
+        ConnectionBase.__init__(connection_string)
+
         self.provider_name = "cockroach"
         if connection_string == "":
             return
 
-        ConnectionBase.__init__(self, connection_string)
         match = re.match(r"cockroach://(\w+):(\w+)@(\w+)(:(\d+))?/(\w+)", self.connection_string)
         if match:
             self.user = match.group(1)

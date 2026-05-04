@@ -1,12 +1,8 @@
-import datetime
-import decimal
 import re
-from typing import Any
 
 import oracledb
 
 from .connection_base import ConnectionBase
-from .mapped_field import Mapped
 
 
 def _rewrite_returning_for_oracle(query: str) -> str:
@@ -20,25 +16,14 @@ def _rewrite_returning_for_oracle(query: str) -> str:
 
 
 class OracleConnection(ConnectionBase):
-    field_type_maps = {
-        int: "INT",
-        float: "FLOAT",
-        str: "VARCHAR({0})",
-        datetime.datetime: "DATETIME",
-        bool: "INT",
-        decimal.Decimal: "DECIMAL({0},{1})"
-    }
-
-    property_type_maps = {
-        bool: lambda x: x == 1
-    }
-
     def __init__(self, connection_string: str = ""):
         # oracle://user:pass@localhost/db
+        super().__init__(connection_string)
+
         self.provider_name = "oracle"
         if connection_string == "":
             return
-        super().__init__(connection_string)
+
         match = re.match(r"oracle://(\w+):(\w+)@(\w+)(:(\d+))?/(\w+)", self.connection_string)
         if match:
             self.user = match.group(1)
@@ -55,39 +40,6 @@ class OracleConnection(ConnectionBase):
         self.connection = oracledb.connect(user=self.user, password=self.password, host=self.hostname,
                                            service_name=self.database, port=self.port)
         self.cursor = self.connection.cursor()
-
-    def escape_name(self, name:str)->str:
-        return f"\"{name}\""
-
-    def normalize_query(self, query: str) -> str:
-        new_query = re.sub(r"select exists\((\w+)\);", "SELECT count(*) FROM user_tables WHERE table_name = '\\1';",
-                           query, re.IGNORECASE)
-        return new_query
-
-    def generate_additional_create(self, table: type["TableBase"]) -> str:
-        table_comment = ""
-        if table.__table_description__:
-            table_comment = f"COMMENT ON TABLE {self.escape_name(table.__table_name__)} IS '{table.__table_description__}'; \r\n "
-        column_comments = [f"COMMENT ON COLUMN {table.__table_name__}.{f.field_name} IS '{f.description}';" for f in table.get_fields() if f.description != ""]
-        query = table_comment
-        query += ", \r\n".join(column_comments)
-        return query
-
-    def generate_insert_query(self, table: type["TableBase"]) -> str:
-        fields = [f for f in table.get_fields() if not f.auto_increment]
-        field_parameters = [self.generate_parameter(f) for f in fields]
-        query = f"INSERT INTO {table.__table_name__} ({", ".join([f.field_name for f in fields])}) VALUES ({", ".join(field_parameters)}) RETURNING {table._autoincrement_field.field_name};"
-        return query
-
-    def type_to_sql_type(self, field: Mapped) -> str:
-        type_str: str = self.field_type_maps.get(field.field_type, "")
-        if "{" in type_str:
-            type_str = type_str.format(field.size, field.precision)
-        return type_str
-
-    def map_sql_value(self, sql_value, property_type: type) -> Any:
-        map_func = self.property_type_maps.get(property_type, lambda x: x)
-        return map_func(sql_value)
 
     def start(self):
         ...

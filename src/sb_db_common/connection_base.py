@@ -1,11 +1,6 @@
-from typing import TYPE_CHECKING, Any, get_args
+from typing import Any
 
 from .managed_cursor import ManagedCursor
-from .repo_context import RepositoryContext
-
-if TYPE_CHECKING:
-    from .table_base import TableBase
-from .mapped_field import Mapped, ReferenceType
 
 
 class ConnectionBase(object):
@@ -18,13 +13,6 @@ class ConnectionBase(object):
 
     def db_type(self):
         return self.provider_name
-
-    def normalize_query(self, query: str) -> str:
-        """
-        convert all queries from parameter name = :name to specific format
-        and exists queries to specific format - exists queries should be select exists(<tablename>) -> expecting 1 or 0
-        """
-        return query
 
     def __enter__(self):
         return self
@@ -42,15 +30,15 @@ class ConnectionBase(object):
         self.cursor.execute("ROLLBACK;")
 
     def execute(self, query: str, params: None):
-        self._execute(self.normalize_query(query), params)
+        self._execute(query, params)
 
-    def _execute(self, query: str, params: None):
+    def _execute(self, query: str, params: None | dict):
         if params is None:
             params = {}
         self.cursor.execute(query, params)
 
     def execute_lastrowid(self, query: str, params: dict):
-        return self._execute_lastrowid(self.normalize_query(query), params)
+        return self._execute_lastrowid(query, params)
 
     def _execute_lastrowid(self, query: str, params: dict):
         if params is None:
@@ -60,9 +48,9 @@ class ConnectionBase(object):
         return cursor.fetchone()[0]
 
     def fetch(self, query: str, params=None) -> ManagedCursor:
-        return self._fetch(self.normalize_query(query), params)
+        return self._fetch(query, params)
 
-    def _fetch(self, query: str, params=None) -> ManagedCursor:
+    def _fetch(self, query: str, params=dict | None) -> ManagedCursor:
         if params is None:
             params = {}
         cursor = self.connection.cursor()
@@ -74,139 +62,3 @@ class ConnectionBase(object):
 
     def close(self):
         ...
-
-    def escape_name(self, name: str) -> str:
-        return name
-
-    def generate_foreign_key(self, field: Mapped) -> str:
-        if field.is_lookup:
-            repo = RepositoryContext.get_repository(field.lookup_type)
-            if type(field.field_type) is not list and field.reference_type == ReferenceType.OneToMany:
-                return f"REFERENCES {repo.__table__.__table_name__}({repo.__table__._pk_field.field_name}) "
-
-            if field.is_1_many:
-                return f"REFERENCES {repo.__table__.__table_name__}({field.join_parent_field_name}) "
-
-        return ""
-
-    def generate_field_definition(self, field: Mapped) -> str:
-        return f"{self.escape_name(field.field_name)} {self.type_to_sql_type(field)} {self.generate_nullable(field)} {self.generate_is_pk(field)} {self.generate_autoincrement(field)} {self.generate_foreign_key(field)}"
-
-    def generate_parameter(self, field: Mapped) -> str:
-        return f":{field.field_name}"
-
-    def type_to_sql_type(self, field: Mapped) -> str:
-        ...
-
-    def map_sql_value(self, sql_value, property_type: type) -> Any:
-        return sql_value
-
-    def generate_nullable(self, field: Mapped) -> str:
-        return "NULL" if field.optional else "NOT NULL"
-
-    def generate_is_pk(self, field: Mapped) -> str:
-        return "PRIMARY KEY" if field.primary_key else ""
-
-    def generate_autoincrement(self, field: Mapped) -> str:
-        return "AUTOINCREMENT" if field.auto_increment else ""
-
-    def generate_exists_query(self, table: type["TableBase"]) -> str:
-        query = f"select exists({table.__table_name__});"
-        return self.normalize_query(query)
-
-    def generate_count_query(self, table: type["TableBase"]) -> str:
-        query = f"select count(*) from {self.escape_name(table.__table_name__)};"
-        return self.normalize_query(query)
-
-    def generate_additional_create(self, table: type["TableBase"]) -> str:
-        return "\r\n"
-
-    def generate_create_query(self, table: type["TableBase"]) -> str:
-        fields_temp = [f for f in table.get_fields() if f.reference_type == ReferenceType.NoReference]
-        fields = []
-        for field in fields_temp:
-            lookup_field = next((f for f in table.get_fields() if f.reference_type == ReferenceType.Lookup and f.field_name == field.field_name),
-                                None)
-            if lookup_field is not None:
-                field.is_lookup = True
-                if type(field.field_type) is list:
-                    field.lookup_type = get_args(lookup_field.field_type)[0]
-                else:
-                    field.lookup_type = lookup_field.field_type
-            fields.append(field)
-
-        field_defs = [self.generate_field_definition(f) for f in fields]
-        query = f"CREATE TABLE {self.escape_name(table.__table_name__)} \r\n"
-        query += f"({',\r\n '.join(field_defs)});\r\n"
-        query += self.generate_create_indexes(table)
-        query += self.generate_additional_create(table)
-        return self.normalize_query(query)
-
-    def generate_create_indexes(self, table: type["TableBase"]) -> str:
-        fields = table.get_fields()
-        indexes = table.get_indexes()
-        all_queries = ""
-        # do single field indexes first
-        for field in [f for f in fields if (f.indexed or f.unique) and not f.reference_type == ReferenceType.NoReference]:
-            query = f"CREATE {'UNIQUE' if field.unique else ''} INDEX {self.escape_name(table.__table_name__ + "_" + field.name + "_index")} ON {self.escape_name(table.__table_name__)} ({self.escape_name(field.field_name)});"
-            all_queries += query + "\r\n"
-
-        # do separate indexes
-        for index in indexes:
-            query = f"CREATE {'UNIQUE' if index.unique else ''} INDEX {self.escape_name(index.name)} ON {self.escape_name(table.__table_name__)} ({', '.join([self.escape_name(f) for f in index.fields])});"
-            all_queries += query + "\r\n"
-
-        return all_queries
-
-    def generate_insert_query(self, table: type["TableBase"]) -> str:
-        fields = [f for f in table.get_fields() if not f.auto_increment and f.reference_type == ReferenceType.NoReference]
-        field_parameters = [self.generate_parameter(f) for f in fields]
-        query = f"INSERT INTO {table.__table_name__} ({", ".join([f.field_name for f in fields])}) VALUES ({", ".join(field_parameters)});"
-        return query
-
-    def generate_update_query(self, table: type["TableBase"]) -> str:
-        non_pk_fields = [
-            f for f in table.get_fields()
-            if not f.primary_key and not f.auto_increment and f.reference_type == ReferenceType.NoReference
-        ]
-        non_pk_updates = [f"{f.field_name} = :{f.field_name}" for f in non_pk_fields]
-        pk_key = f"{table._pk_field.field_name} = :{table._pk_field.field_name}"
-        query = f"UPDATE {table.__table_name__} SET {', '.join(non_pk_updates)} WHERE {pk_key};"
-        new_query = self.normalize_query(query)
-        return new_query
-
-    def generate_delete_query(self, table: type["TableBase"]) -> str:
-        pk_key = f"{table._pk_field.field_name} = :{table._pk_field.field_name}"
-        query = f"DELETE FROM {table.__table_name__} WHERE {pk_key};"
-        new_query = self.normalize_query(query)
-        return new_query
-
-    def generate_drop_query(self, table: type["TableBase"]) -> str:
-        query = f"DROP TABLE {table.__table_name__};"
-        return query
-
-    def generate_fetch_by_id_query(self, table: type["TableBase"]) -> str:
-        fields = [f for f in table.get_fields() if f.reference_type == ReferenceType.NoReference]
-        field_names = [f.field_name for f in fields]
-        pk_key = f"{table._pk_field.field_name} = :{table._pk_field.field_name}"
-        query = f"SELECT {', '.join(field_names)} FROM {table.__table_name__} WHERE {pk_key};"
-        new_query = self.normalize_query(query)
-        return new_query
-
-    def generate_fetch_for_parent_query(self, table: type["TableBase"]) -> str:
-        remote_field = next((f for f in table.get_fields() if f.reference_type == ReferenceType.Lookup), None)
-        if remote_field:
-            fields = [f for f in table.get_fields() if f.reference_type == ReferenceType.NoReference]
-            field_names = [f.field_name for f in fields]
-            key = f"{remote_field.field_name} = :parent_id"
-            query = f"SELECT {', '.join(field_names)} FROM {table.__table_name__} WHERE {key};"
-            new_query = self.normalize_query(query)
-            return new_query
-
-        return ""
-
-    def generate_item_exists_query(self, table: type["TableBase"]) -> str:
-        pk_key = f"{table._pk_field.field_name} = :{table._pk_field.field_name}"
-        query = f"SELECT COUNT(*) FROM {table.__table_name__} WHERE {pk_key};"
-        new_query = self.normalize_query(query)
-        return new_query

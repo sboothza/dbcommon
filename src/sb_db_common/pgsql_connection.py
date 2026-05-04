@@ -1,36 +1,18 @@
-import datetime
-import decimal
 import re
-from typing import Any
 
 import psycopg2
-from docutils.nodes import field_name
 
 from .connection_base import ConnectionBase
-from .managed_cursor import ManagedCursor
-from .mapped_field import Mapped
 
 
 class PgSqlConnection(ConnectionBase):
-    field_type_maps = {
-        int: "INT",
-        float: "FLOAT",
-        str: "VARCHAR({0})",
-        datetime.datetime: "TIMESTAMP",
-        bool: "BOOLEAN",
-        decimal.Decimal: "DECIMAL({0},{1})"
-    }
-
-    property_type_maps = {
-        bool: lambda x: x == 1
-    }
-
     def __init__(self, connection_string: str = ""):
+        super().__init__(connection_string)
+
         self.provider_name = "pgsql"
         if connection_string == "":
             return
 
-        super().__init__(connection_string)
         match = re.match(r"pgsql://(\w+):(\w+)@(\w+)(:(\d+))?/(\w+)", self.connection_string)
         if match:
             self.user = match.group(1)
@@ -48,45 +30,6 @@ class PgSqlConnection(ConnectionBase):
         self.connection = psycopg2.connect(user=self.user, password=self.password, host=self.hostname,
                                            database=self.database, port=self.port)
         self.cursor = self.connection.cursor()
-
-    def escape_name(self, name:str)->str:
-        return f"\"{name}\""
-
-    def normalize_query(self, query: str) -> str:
-        new_query = re.sub(r":((\w)+)", "%(\\1)s", query)
-        new_query = re.sub(r"select exists\((\w+)\);",
-                           "SELECT count(*) FROM information_schema.tables WHERE table_schema = '{database}' AND table_name = '\\1';",
-                           new_query, re.IGNORECASE)
-        new_query = re.sub("AUTOINCREMENT", "GENERATED ALWAYS AS IDENTITY", new_query)
-        return new_query
-
-    def generate_additional_create(self, table: type["TableBase"]) -> str:
-        indexes = table.get_indexes()
-        table_comment = ""
-        if table.__table_description__:
-            table_comment += f"COMMENT ON TABLE {table.__table_name__} IS {table.__table_description__} \r\n"
-        field_comments = [f"COMMENT ON COLUMN {table.__table_name__}.{f.field_name} IS '{f.description}';" for f in table.get_fields() if f.description != ""]
-        index_comments = [f"COMMENT ON INDEX {i.name} IS '{i.description}';" for i in indexes if i.description != ""]
-        query = table_comment
-        query += ", \r\n".join(field_comments)
-        query += ", \r\n".join(index_comments)
-        return query
-
-    def type_to_sql_type(self, field: Mapped) -> str:
-        type_str: str = self.field_type_maps.get(field.field_type, "")
-        if "{" in type_str:
-            type_str = type_str.format(field.size, field.precision)
-        return type_str
-
-    def map_sql_value(self, sql_value, property_type: type) -> Any:
-        map_func = self.property_type_maps.get(property_type, lambda x: x)
-        return map_func(sql_value)
-
-    def generate_insert_query(self, table: type["TableBase"]) -> str:
-        fields = [f for f in table.get_fields() if not f.auto_increment and not f.is_lookup]
-        field_parameters = [self.generate_parameter(f) for f in fields]
-        query = f"INSERT INTO {table.__table_name__} ({", ".join([f.field_name for f in fields])}) VALUES ({", ".join(field_parameters)}) RETURNING {table._autoincrement_field.field_name};"
-        return query
 
     def close(self):
         self.connection.close()
